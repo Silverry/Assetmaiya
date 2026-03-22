@@ -169,3 +169,53 @@ app.js App 组件
 1. 更新 CHANGELOG.md
 2. 更新 CLAUDE.md 受影响章节
 3. 输出改动文件清单
+4. **执行 Git 提交**（见下方 Git 规范）
+
+## 8. Git 版本管理规范
+
+本项目已初始化 Git 仓库（本地），所有代码改动必须在 session 结束时提交。
+
+### 每次 session 结束必须执行 Git 提交
+
+```bash
+cd '/Users/silverry/Library/Mobile Documents/com~apple~CloudDocs/资产库/assetproject'
+git add -A
+git commit -m "<类型>: <改动摘要>"
+```
+
+### Commit Message 格式规范
+
+| 类型 | 含义 | 示例 |
+|------|------|------|
+| `feat` | 新功能/新页面 | `feat: 新增资产批量导出功能` |
+| `fix` | 修复 Bug | `fix: 修复标签筛选不生效问题` |
+| `style` | UI 样式调整 | `style: 调整详情面板配色` |
+| `refactor` | 重构（不改变功能）| `refactor: 拆分 app.js 为独立模块` |
+| `docs` | 更新文档 | `docs: 更新 CLAUDE.md 架构说明` |
+| `chore` | 构建/维护 | `chore: 更新 .gitignore` |
+
+### 查看历史版本
+
+```bash
+git log --oneline         # 查看提交历史
+git diff HEAD~1           # 查看上一次改了什么
+git checkout <hash> -- js/app.js  # 恢复某个文件到指定版本
+git checkout <hash>       # 切换到某个历史版本（只读查看）
+git checkout main         # 回到最新版本
+```
+
+### 回滚到历史版本
+
+```bash
+# 查找并切换到目标版本
+git log --oneline
+git revert <hash>         # 安全回滚：创建新提交来撤销指定版本的改动（推荐）
+# 或
+git reset --hard <hash>   # 强制回滚到指定版本（会丢失之后的提交，谨慎使用）
+```
+
+> ⚠️ **注意**：`git reset --hard` 会永久丢失回滚点之后的提交。如果只是想查看历史代码，优先用 `git checkout <hash>` 查看，再 `git checkout main` 返回。
+
+### 不需要推送远程
+
+本项目当前使用**纯本地 Git**，不需要 push 到 GitHub/GitLab，历史版本保存在本地 `.git/` 目录中。
