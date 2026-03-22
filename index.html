@@ -1,0 +1,1718 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>资产管理中心</title>
+  <style>
+/* ═══════════════════════════════════════════════════════════
+   资产管理中心 - 全局样式
+   ═══════════════════════════════════════════════════════════ */
+
+/* Reset & Base */
+* {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
+::selection {
+  background: #BFDBFE;
+  color: #1E3A5F;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #D1D5DB;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9CA3AF;
+}
+
+/* Select dropdown */
+select option {
+  background: #FFFFFF;
+  color: #111827;
+}
+
+/* Placeholder */
+input::placeholder {
+  color: #9CA3AF;
+}
+
+/* Hover helpers */
+.hover-dim:hover {
+  background: #F3F4F6 !important;
+}
+.hover-group:hover,
+.hover-tag:hover {
+  background: #F9FAFB !important;
+}
+.hover-detail-close:hover {
+  color: #111827 !important;
+}
+/* [REMOVED] .hover-badge-close — 未被任何 JS/HTML 引用 */
+.app-grid-card:hover:not(.sel) {
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,.08), 0 2px 4px -2px rgba(0,0,0,.06) !important;
+}
+.app-list-card:hover:not(.sel) {
+  background: #F9FAFB !important;
+}
+
+/* Keyframe Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideD {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes modalFade {
+  from {
+    opacity: 0;
+    transform: scale(.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes panelSlide {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+  </style>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+
+// ═══════════════════════════════════════════════════════════
+//  data.js — 数据层：类别、标签维度、实体、初始资产
+//  职责：定义所有 mock 数据结构和查询函数，不含任何 UI/JSX
+//  依赖：无（本文件是最先加载的模块）
+//  被依赖：theme.js（CL）、components.js、pages.js、upload.js、settings.js、app.js
+//  导出全局变量：CATEGORIES, TAG_DIMS, ALL_TAGS, TM, tagById, ENTITIES, CL, INITIAL_ASSETS
+// ═══════════════════════════════════════════════════════════
+
+/** @type {Array<{id: string, name: string, icon: string}>} */
+let CATEGORIES = [
+  { id: "scene", name: "场景", icon: "🏔" },
+  { id: "character", name: "角色", icon: "👤" },
+  { id: "creature", name: "生物", icon: "🐉" },
+  { id: "prop", name: "道具", icon: "⚔" },
+];
+
+/**
+ * 标签维度树
+ * @type {Array<{id: string, catId: string, name: string, isRequired?: boolean, groups: Array<{id: string, name: string, tags: string[], tagObjs?: Array}>}>}
+ */
+let TAG_DIMS = [
+  {
+id: "d1", catId: "scene", name: "场景空间", groups: [
+  { id: "d1g01", name: "居寝空间", tags: ["主卧 / 寝殿", "闺房 / 小姐房", "太子 / 皇子寝宫", "后宫妃嫔寝宫", "宫女 / 下人房", "厢房", "偏院 / 废弃院落"] },
+  { id: "d1g02", name: "厅堂议事", tags: ["主厅 / 正厅", "偏厅 / 茶厅", "皇宫大殿 / 金銮殿", "皇宫偏殿 / 议事殿", "王爷府正厅", "县衙大堂", "县衙后堂 / 县令书房", "祠堂"] },
+  { id: "d1g03", name: "书房学堂", tags: ["书房", "太子书房 / 书院", "皇宫书房 / 御书房", "私塾 / 书房教室", "书院大堂", "藏书楼", "公主府密室"] },
+  { id: "d1g04", name: "庭院园林", tags: ["庭院（小景、假山、走廊）", "回廊 / 抄手游廊", "御花园", "凉亭", "柴院 / 杂物院", "偏院 / 废弃院落", "将军府练武场"] },
+  { id: "d1g05", name: "餐厨起居", tags: ["厨房 / 小膳房", "浴室 / 净房", "皇宫尚衣局 / 尚食局"] },
+  { id: "d1g06", name: "客栈酒楼", tags: ["客栈大堂", "客栈客房", "酒楼大堂", "春风楼 / 酒家", "茶馆"] },
+  { id: "d1g07", name: "街市商铺", tags: ["街头 / 街道", "绸缎庄 / 布庄", "首饰店 / 胭脂铺", "当铺", "钱庄", "铁匠铺", "木材铺", "药房 / 医馆"] },
+  { id: "d1g08", name: "官府衙门", tags: ["县衙大堂", "县衙后堂", "宫门 / 府门"] },
+  { id: "d1g09", name: "皇宫专属", tags: ["皇宫大殿", "皇宫偏殿", "皇宫书房 / 御书房", "皇宫冷宫", "皇宫尚衣局", "皇宫角楼 / 宫墙", "大型皇宫广场", "后宫妃嫔寝宫", "御花园"] },
+  { id: "d1g10", name: "军事营地", tags: ["将军府练武场", "将军营帐 / 帅帐", "士兵营帐", "边疆城楼"] },
+  { id: "d1g11", name: "宗教祭祀", tags: ["佛堂 / 静室", "道观", "道观大殿", "寺庙大殿", "祭坛", "灵堂"] },
+  { id: "d1g12", name: "牢狱密道", tags: ["牢房 / 柴房", "柴院 / 杂物院", "山洞 / 密道入口", "地宫"] },
+  { id: "d1g13", name: "交通驿运", tags: ["驿站", "码头"] },
+  { id: "d1g14", name: "特殊场景", tags: ["戏台", "皇家猎场", "战场", "悬崖", "水上楼阁", "海盗船", "秘境 / 仙府", "皇家陵园"] },
+]
+  },
+  {
+id: "d2", catId: "scene", name: "时代朝代", groups: [
+  { id: "d2g01", name: "秦汉", tags: ["秦汉皇家陵寝地宫"] },
+  { id: "d2g02", name: "盛唐", tags: ["盛唐", "盛唐皇家", "盛唐边关", "盛唐尚衣局", "盛唐太子寝宫", "盛唐国公府", "盛唐皇家祭天", "盛唐皇家水上楼阁", "盛唐皇宫", "盛唐禁军", "盛唐京城", "盛唐清正县令", "盛唐开阔大气", "盛唐亲王", "盛唐嫡公主", "盛唐皇庄", "盛唐皇家陵园"] },
+  { id: "d2g03", name: "宋代", tags: ["宋代", "宋代文官", "宋代王府", "宋代市井", "宋代官营", "宋代宫斗", "宋代文人", "宋代官邸", "宋代清雅宫廷", "宋代江南守城", "宋代边塞守城", "宋代江湖帮派"] },
+  { id: "d2g04", name: "明代", tags: ["明代", "明代武官", "明代武将", "明代权臣", "明代皇宫", "明代密议", "明代铁血太子", "明代京城", "明代晋商大票号", "明代皇家陵园"] },
+  { id: "d2g05", name: "清代", tags: ["清代", "清朝格格", "清代三品官宦", "清代八旗", "清代官商", "清代塞外", "清宫制式"] },
+  { id: "d2g06", name: "汉唐通用", tags: ["汉唐东宫"] },
+  { id: "d2g07", name: "架空仙侠", tags: ["玄幻", "仙门", "仙侠", "仙侠仙门", "仙侠仙山", "仙道宗门", "仙侠凌霄殿"] },
+  { id: "d2g08", name: "魔道架空", tags: ["魔道", "魔教", "魔宫大殿"] },
+  { id: "d2g09", name: "历史通用", tags: ["江湖", "边塞", "市井", "江南"] },
+]
+  },
+  {
+id: "d3", catId: "scene", name: "势力阵营", groups: [
+  { id: "d3g01", name: "皇室宫廷", tags: ["皇宫", "宫廷", "东宫", "太和殿", "凌霄殿", "后宫", "皇家", "皇家佛堂", "皇家汤池", "皇家敕建", "皇家议事", "后宫议政"] },
+  { id: "d3g02", name: "文官体系", tags: ["文官", "权臣", "宦官", "县令", "国子监", "宋代文官", "明代权臣", "江南文官", "清代三品官宦"] },
+  { id: "d3g03", name: "武将军事", tags: ["武将", "将军府", "边塞将军", "水师", "禁军", "世家武将", "明代武官", "明代武将", "西北武将"] },
+  { id: "d3g04", name: "王公贵族", tags: ["王爷", "国公府", "亲王", "藩王", "侯府", "王府", "盛唐亲王", "边塞藩王"] },
+  { id: "d3g05", name: "商贾财团", tags: ["徽商", "晋商", "富商", "儒商", "南洋侨商", "江南富商", "闽南客家", "徽商儒商"] },
+  { id: "d3g06", name: "江湖帮派", tags: ["江湖", "武林盟主", "镖局", "暗庄", "帮派", "暗杀组织", "武林门派"] },
+  { id: "d3g07", name: "魔道阵营", tags: ["魔教", "魔道", "魔教总坛", "魔教圣女", "魔教反派", "魔教庭院"] },
+  { id: "d3g08", name: "仙门宗门", tags: ["仙门", "正道仙门", "仙道宗门", "宗主", "玄幻宗主"] },
+  { id: "d3g09", name: "世家宗族", tags: ["世家", "豪门", "宗族", "官宦世家", "宗族围合庭院"] },
+  { id: "d3g10", name: "市井民间", tags: ["市井", "乡野农户", "寒门", "百姓"] },
+]
+  },
+  {
+id: "d4", catId: "scene", name: "地域空间", groups: [
+  { id: "d4g01", name: "京城长安", tags: ["京城", "长安", "京城戏楼", "京城士子会馆", "京城医馆", "京城胭脂阁", "京城大当铺", "盛唐京城"] },
+  { id: "d4g02", name: "江南水乡", tags: ["江南", "江南园林", "江南水乡", "江南徽商", "江南富商", "江南文官", "江南私家书院", "江南苏绣", "江南药庐"] },
+  { id: "d4g03", name: "边塞西北", tags: ["边塞", "塞北", "大漠", "边关", "戈壁", "边关武将", "塞北大漠", "边塞军营", "边塞将军府", "塞北将军府"] },
+  { id: "d4g04", name: "西域丝路", tags: ["西域", "丝路", "西域丝路", "西域地牢", "西域胡塞", "西域商旅", "丝路商旅"] },
+  { id: "d4g05", name: "南洋岭南", tags: ["南洋", "南洋侨商", "岭南", "岭南商厅"] },
+  { id: "d4g06", name: "闽南客家", tags: ["闽南客家", "客家驿馆"] },
+  { id: "d4g07", name: "深山野外", tags: ["深山", "山野", "幽谷", "荒野", "仙山", "深山佛堂", "深山书阁", "深山古洞入口"] },
+  { id: "d4g08", name: "水上海上", tags: ["水师", "海盗船", "水上楼阁", "渡口", "码头", "江南水师", "东方江湖海盗船", "南洋通商海盗船"] },
+]
+  },
+  {
+id: "d5", catId: "scene", name: "场景功能", groups: [
+  { id: "d5g01", name: "居寝卧室", tags: ["寝宫", "卧室", "闺房", "男性卧室-多视角", "公主闺房", "贵妃寝宫", "太子寝宫"] },
+  { id: "d5g02", name: "厅堂议政", tags: ["大殿", "议政", "茶厅", "王府茶厅", "后宫议政", "皇家议事", "魔道大殿", "魔宫大殿", "清代太和殿"] },
+  { id: "d5g03", name: "书房学堂", tags: ["书房", "书斋", "书院", "书斋别院", "国子监", "边塞军塾", "女子闺塾", "寒门乡学", "江南私家书院", "宋代官营", "官方", "世家大族", "深山书阁"] },
+  { id: "d5g04", name: "庭院园林", tags: ["庭院", "园林", "假山", "灵植庭院", "演武庭院", "仙门灵植庭院", "宗族围合庭院", "山野庭院", "魔教庭院"] },
+  { id: "d5g05", name: "客栈驿站", tags: ["客栈", "驿站", "官驿", "会馆", "驿馆", "江湖客栈", "官驿上房", "乡野小驿站", "仙门驿站", "州府官驿"] },
+  { id: "d5g06", name: "牢狱囚室", tags: ["大牢", "地牢", "囚室", "柴房囚室", "思过崖", "边塞军牢", "官府大牢", "黑帮地牢", "荒野囚室", "魔教暗牢", "山寨水牢", "西域地牢", "县衙小牢房"] },
+  { id: "d5g07", name: "商业场所", tags: ["药铺", "首饰店", "胭脂阁", "脂粉铺", "当铺", "缎庄", "票号", "黑店", "暗庄", "医馆", "药庐"] },
+  { id: "d5g08", name: "宗教祭祀", tags: ["佛堂", "道观", "祭坛", "祭天", "寺庙", "皇家佛堂", "深山佛堂", "静庙", "道观大殿"] },
+  { id: "d5g09", name: "冷宫废苑", tags: ["冷宫", "废妃冷宫", "冷苑", "废弃御书房", "偏僻小冷宫", "冷宫弃将"] },
+  { id: "d5g10", name: "战场关隘", tags: ["战场", "城楼", "雄关", "军牢", "营帐", "边塞军营", "警戒哨帐", "盛唐边关雄关", "宋代边塞守城"] },
+  { id: "d5g11", name: "秘境特殊", tags: ["秘境", "古墓", "地宫", "陵园", "悬崖", "水下暗河", "寒潭灵泉", "幽谷禁地"] },
+  { id: "d5g12", name: "厨房膳房", tags: ["御膳房", "清膳房", "柴院", "宫廷御膳房", "仙门清膳房"] },
+  { id: "d5g13", name: "暗室密室", tags: ["暗室", "密室", "权臣暗室", "魔教暗室", "皇宫暗格", "江湖帮会"] },
+]
+  },
+  {
+id: "d9", catId: "scene", name: "人物身份", groups: [
+  { id: "d9g01", name: "皇家人物", tags: ["皇后", "贵妃", "宠妃", "嫔妃", "格格", "太子", "皇子", "宠皇子", "骄纵宠皇子", "废黜冷苑皇子", "蛰伏隐忍皇子", "明代铁血太子", "宋代文雅皇子", "盛唐太子"] },
+  { id: "d9g02", name: "贵女系列", tags: ["公主", "嫡女", "贵女", "才女", "千金", "侯府嫡女", "贵女公主", "商贾千金", "世家才女", "盛唐嫡公主"] },
+  { id: "d9g03", name: "文人仕途", tags: ["文官", "士子", "书生", "知县", "宗族文人", "清正县令", "文人知县"] },
+  { id: "d9g04", name: "武将侠客", tags: ["武将", "侠客", "武林", "巾帼武将", "小兵", "边关武将", "江湖侠客"] },
+  { id: "d9g05", name: "商贾人物", tags: ["富商", "儒商", "侨商", "商贾千金", "江南富商", "徽商"] },
+  { id: "d9g06", name: "江湖人物", tags: ["暗杀组织", "密探", "情报", "帮主", "江湖武林", "江湖侠客"] },
+  { id: "d9g07", name: "仙魔人物", tags: ["神女", "圣女", "宗主", "仙门弟子", "魔教反派", "仙门神女", "魔教圣女"] },
+  { id: "d9g08", name: "特殊身份", tags: ["宦官", "隐士", "医者", "药仙", "江湖隐者"] },
+]
+  },
+  {
+id: "d10", catId: "character", name: "人物外观", groups: [
+  { id: "a2g01", name: "服饰风格", tags: ["粗布麻衣", "绫罗绸缎", "盔甲", "夜行衣", "道袍", "袈裟", "官服", "胡服", "宫廷华服", "乞丐装"] },
+  { id: "a2g02", name: "发型头饰", tags: ["披发", "束发", "发髻", "光头", "戴斗笠", "戴帷帽", "发簪", "步摇", "凤冠", "玉冠"] },
+  { id: "a2g03", name: "面部特征", tags: ["清秀俊朗", "面目狰狞", "刀疤脸", "满脸横肉", "仙风道骨", "国色天香", "倾国倾城", "剑眉星目", "慈眉善目", "贼眉鼠眼"] },
+]
+  },
+  {
+id: "d11", catId: "character", name: "性格特质", groups: [
+  { id: "a3g01", name: "正面特质", tags: ["刚正不阿", "温柔体贴", "机智过人", "英勇无畏", "深谋远虑", "光明磊落", "悲天悯人", "忠心耿耿", "冰雪聪明", "豪放不羁"] },
+  { id: "a3g02", name: "负面特质", tags: ["阴险狡诈", "贪生怕死", "嚣张跋扈", "睚眦必报", "优柔寡断", "心狠手辣", "两面三刀", "目光短浅", "阿谀奉承", "傲慢自大"] },
+]
+  },
+  {
+id: "d12", catId: "creature", name: "生物类型", groups: [
+  { id: "c1g01", name: "神话异兽", tags: ["龙", "凤", "麒麟", "貔貅", "玄武", "朱雀", "白虎", "九尾狐", "饕餮", "穷奇"] },
+  { id: "c1g02", name: "普通动物", tags: ["马", "牛", "羊", "狗", "鸡", "猪", "狼", "虎", "豹", "熊"] },
+  { id: "c1g03", name: "精怪妖物", tags: ["树精", "花妖", "狐妖", "蛇妖", "狼妖", "水怪", "山魈", "僵尸", "骷髅", "怨鬼"] },
+]
+  },
+  {
+id: "d13", catId: "prop", name: "道具类型", groups: [
+  { id: "p1g01", name: "武器装备", tags: ["剑", "刀", "枪", "棍", "弓箭", "暗器", "盾牌", "内甲", "法杖", "符箓"] },
+  { id: "p1g02", name: "生活用品", tags: ["碗筷", "茶具", "酒壶", "铜镜", "梳子", "灯笼", "雨伞", "包袱", "笔墨纸砚", "书籍"] },
+  { id: "p1g03", name: "奇珍异宝", tags: ["夜明珠", "玉佩", "翡翠", "玛瑙", "金锭", "银两", "古董字画", "灵丹妙药", "空间戒指", "传送符"] },
+]
+  },
+  {
+id: "d14", catId: "scene", name: "视觉风格", groups: [
+  { id: "d7g01", name: "色调氛围", tags: ["低调低饱和度", "冷调威严", "冷调权谋", "简朴素净", "压抑冷调", "低调隐秘", "冷峻威严", "昏暗简陋", "飞雪宫墙"] },
+  { id: "d7g02", name: "气质风格", tags: ["盛世储君", "书卷文雅", "江南温婉", "铁血", "骄纵权贵", "亲民简朴", "清正", "规整大气", "开阔大气", "清宫制式精致"] },
+]
+  },
+  {
+id: "d8", catId: "scene", name: "适配题材", groups: [
+  { id: "d8g01", name: "场景用途", tags: ["会客", "议事", "家宴"] },
+]
+  },
+];
+
+// ── 标签索引构建 ─────────────────────────────────────────
+let _tid = 0;
+/** @type {Array<{id: string, name: string, gId: string, gName: string, dId: string, dName: string}>} */
+let ALL_TAGS = [];
+/** @type {Object<string, {id: string, name: string, gId: string, gName: string, dId: string, dName: string}>} */
+let TM = {};
+
+function rebuildTags(dims) {
+  ALL_TAGS = []; TM = {};
+  dims.forEach(dim => {
+    dim.groups.forEach(g => {
+      g.tagObjs = g.tags.map(name => {
+        const id = `t${++_tid}`;
+        const o = { id, name, gId: g.id, gName: g.name, dId: dim.id, dName: dim.name };
+        ALL_TAGS.push(o);
+        TM[id] = o;
+        return o;
+      });
+    });
+  });
+}
+rebuildTags(TAG_DIMS);
+
+/** 按 ID 查找标签对象 */
+const tagById = id => TM[id];
+
+// ── 实体 ─────────────────────────────────────────────────
+/** @type {Array<{id: string, name: string, catId: string}>} */
+const ENTITIES = [
+  { id: "e1", name: "望京咖啡厅", catId: "scene" },
+  { id: "e2", name: "废弃工厂外景", catId: "scene" },
+  { id: "e3", name: "男主角-林远", catId: "character" },
+  { id: "e4", name: "女主角-苏晚", catId: "character" },
+  { id: "e5", name: "古董花瓶", catId: "prop" },
+];
+
+// ── 示例资产生成 ─────────────────────────────────────────
+/** 缩略图占位色板 */
+const CL = ["#E0F2FE", "#FEF3C7", "#DCFCE7", "#F3E8FF", "#FFE4E6", "#E0E7FF", "#FEF9C3", "#CCFBF1", "#FDE68A", "#D1FAE5", "#DDD6FE", "#FBCFE8"];
+
+/**
+ * 资产对象结构
+ * @typedef {Object} Asset
+ * @property {string}   id     - 唯一 ID（如 "a1"）
+ * @property {string}   name   - 文件名（如 "xxx_素材.png"）
+ * @property {"image"|"video"} type - 媒体类型
+ * @property {string}   catId  - 所属类别 ID（对应 CATEGORIES.id）
+ * @property {string[]} tags   - 已选标签 ID 列表（对应 ALL_TAGS 中的 id）
+ * @property {string|null} entId - 关联实体 ID（对应 ENTITIES.id），可为 null
+ * @property {number}   size   - 文件大小（字节）
+ * @property {string}   date   - 日期字符串（YYYY-MM-DD）
+ * @property {string}   color  - 缩略图占位背景色
+ * @property {File}     [file] - 实际上传的文件对象（仅上传流程中存在）
+ */
+
+/** @type {Asset[]} 基于标签维度自动生成的演示资产 */
+const INITIAL_ASSETS = (() => {
+  const a = []; let id = 0;
+  TAG_DIMS.forEach(dim => {
+    dim.groups.slice(0, 2).forEach(g => {
+      g.tagObjs.slice(0, 3).forEach(t => {
+        id++;
+        a.push({
+          id: `a${id}`,
+          name: `${t.name}_素材.png`,
+          type: id % 9 === 0 ? "video" : "image",
+          catId: dim.catId || "scene",
+          tags: [t.id],
+          entId: null,
+          size: Math.floor(Math.random() * 8e6) + 2e5,
+          date: new Date(2025, Math.floor(Math.random() * 5), Math.floor(Math.random() * 28) + 1).toISOString().slice(0, 10),
+          color: CL[id % CL.length]
+        });
+      });
+    });
+  });
+  return a;
+})();
+// ═══════════════════════════════════════════════════════════
+//  theme.js — 设计令牌、图标库、工具函数
+//  职责：定义全局视觉常量（V）、字体、SVG 图标（I）、通用工具函数
+//  依赖：无（本文件是最底层的视觉基础设施）
+//  被依赖：components.js、pages.js、upload.js、settings.js、app.js
+// ═══════════════════════════════════════════════════════════
+
+/** 设计令牌：颜色、圆角、阴影 */
+const V = {
+  bg: "#FFFFFF", muted: "#F9FAFB", border: "#E5E7EB",
+  ring: "#2563EB", fg: "#111827", fgSoft: "#374151", fgMuted: "#9CA3AF",
+  primary: "#18181B", primaryFg: "#FAFAFA", secondary: "#F4F4F5",
+  destructive: "#EF4444",
+  blue: "#3B82F6", blueBg: "#EFF6FF",
+  green: "#22C55E", greenBg: "#F0FDF4",
+  amber: "#F59E0B", amberBg: "#FFFBEB",
+  purple: "#8B5CF6", purpleBg: "#F5F3FF",
+  r: 8, rLg: 12, rFull: 9999,
+  sh: "0 1px 3px rgba(0,0,0,.08),0 1px 2px -1px rgba(0,0,0,.08)",
+  shMd: "0 4px 6px -1px rgba(0,0,0,.08),0 2px 4px -2px rgba(0,0,0,.06)",
+  shLg: "0 10px 15px -3px rgba(0,0,0,.08),0 4px 6px -4px rgba(0,0,0,.04)",
+};
+
+const font = `'Geist','Inter','Noto Sans SC',-apple-system,sans-serif`;
+const mono = `'Geist Mono','SF Mono',monospace`;
+
+/** 格式化文件大小 */
+const fmtSz = b => b < 1024 ? b + " B" : b < 1048576 ? (b / 1024).toFixed(1) + " KB" : (b / 1048576).toFixed(1) + " MB";
+
+// ── SVG 图标库 ───────────────────────────────────────────
+const I = {
+  Search: (s = 16) => <svg width={s} height={s} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><path strokeLinecap="round" d="M21 21l-4.35-4.35" /></svg>,
+  X: (s = 14) => <svg width={s} height={s} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>,
+  Check: (s = 14) => <svg width={s} height={s} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>,
+  Grid: (s = 16) => <svg width={s} height={s} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.6"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" /></svg>,
+  List: (s = 16) => <svg width={s} height={s} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.6"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 5.25h16.5m-16.5-10.5h16.5" /></svg>,
+  Img: (s = 16) => <svg width={s} height={s} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.6"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5a2.25 2.25 0 002.25-2.25V5.25a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 003.75 21z" /></svg>,
+  Vid: (s = 16) => <svg width={s} height={s} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.6"><path strokeLinecap="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9.75a2.25 2.25 0 002.25-2.25V7.5a2.25 2.25 0 00-2.25-2.25H4.5A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" /></svg>,
+  Cube: (s = 14) => <svg width={s} height={s} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.6"><path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" /></svg>,
+  Play: (s = 20) => <svg width={s} height={s} fill="currentColor" viewBox="0 0 24 24"><path d="M8 5.14v14l11-7-11-7z" /></svg>,
+  ChevD: (s = 12) => <svg width={s} height={s} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>,
+  Filter: (s = 16) => <svg width={s} height={s} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.6"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" /></svg>,
+  Upload: (s = 16) => <svg width={s} height={s} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.6"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" /></svg>,
+  Download: (s = 16) => <svg width={s} height={s} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.6"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>,
+  Folder: (s = 14) => <svg width={s} height={s} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.6"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" /></svg>,
+  // [REMOVED] I.FolderOpen — 未被任何文件引用
+  Tag: (s = 14) => <svg width={s} height={s} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.6"><path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" /><path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6z" /></svg>,
+  Plus: (s = 14) => <svg width={s} height={s} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>,
+  Trash: (s = 14) => <svg width={s} height={s} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.6"><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>,
+  Settings: (s = 14) => <svg width={s} height={s} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.6"><path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 010 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 010-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
+  Sparkle: (s = 16) => <svg width={s} height={s} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.6"><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" /></svg>,
+};
+
+// ── 工具函数 ─────────────────────────────────────────────
+
+/** 按钮样式生成器 */
+const btnStyle = (v = "default") => ({
+  display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+  borderRadius: V.r, fontSize: 13, fontWeight: 500, fontFamily: font,
+  padding: "8px 16px", cursor: "pointer", transition: "all .15s",
+  border: v === "outline" ? `1px solid ${V.border}` : "none",
+  background: v === "default" ? V.primary : v === "secondary" ? V.secondary : "transparent",
+  color: v === "default" ? V.primaryFg : v === "outline" ? V.fgSoft : V.fgSoft,
+});
+
+/** 判断文件类型 */
+const ft = f => f.type.startsWith("image/") ? "image" : f.type.startsWith("video/") ? "video" : "other";
+
+/** 接受的 MIME 类型 */
+const ACCEPT = ["image/jpeg", "image/png", "image/gif", "image/webp", "video/mp4", "video/quicktime", "video/webm"];
+
+/** 校验文件是否为支持的媒体类型 */
+const isValid = f => ACCEPT.some(a => f.type.startsWith(a.split("/")[0] + "/"));
+
+/** 生成随机短 ID */
+const uid = () => Math.random().toString(36).slice(2, 9);
+
+/**
+ * 递归读取拖拽的目录项（文件或目录）
+ * @param {FileSystemEntry} entry - 浏览器 DataTransfer API 的文件/目录条目
+ * @returns {Promise<File[]>} 扁平化的有效媒体文件数组（经 isValid 过滤）
+ * 副作用：无
+ */
+function readEntries(entry) {
+  if (entry.isFile) {
+    return new Promise(res => entry.file(f => res(isValid(f) ? [f] : [])));
+  }
+  if (entry.isDirectory) {
+    const reader = entry.createReader();
+    return new Promise(res => {
+      const all = [];
+      function readNext() {
+        reader.readEntries(async entries => {
+          if (entries.length === 0) {
+            const nested = await Promise.all(all.map(readEntries));
+            res(nested.flat());
+          } else {
+            all.push(...entries);
+            readNext();
+          }
+        });
+      }
+      readNext();
+    });
+  }
+  return [];
+}
+// ═══════════════════════════════════════════════════════════
+//  components.js — 可复用 UI 原子/分子组件
+//  职责：CBox、Badge、Thumb、CategorySelect、EntityPicker、TagModal
+//  依赖：data.js（CATEGORIES, TAG_DIMS, ALL_TAGS, tagById）、theme.js（V, I, font, mono, ft, btnStyle, uid）
+//  被依赖：pages.js、upload.js（通过全局作用域引用组件）
+//  所有组件通过 props 接收数据，不依赖全局 state
+// ═══════════════════════════════════════════════════════════
+const { useState, useMemo, useCallback, useRef, useEffect } = React;
+
+// ── CBox (复选框) ────────────────────────────────────────
+function CBox({ on, onClick: oc, size = 15 }) {
+  return (
+    <div onClick={oc} style={{
+      width: size, height: size, borderRadius: 3, flexShrink: 0, cursor: "pointer",
+      border: on ? "none" : `1.5px solid ${V.border}`,
+      background: on ? V.primary : V.bg,
+      display: "flex", alignItems: "center", justifyContent: "center", transition: "all .1s",
+    }}>
+      {on && <span style={{ color: "#fff" }}>{I.Check(size - 4)}</span>}
+    </div>
+  );
+}
+
+// ── Badge (标签徽章) ─────────────────────────────────────
+function Badge({ children, color = V.fg, bg = V.muted, onRemove }) {
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 8px",
+      borderRadius: V.rFull, fontSize: 12, fontWeight: 500, background: bg, color,
+      whiteSpace: "nowrap", border: `1px solid ${color}15`,
+    }}>
+      {children}
+      {onRemove && (
+        <span onClick={e => { e.stopPropagation(); onRemove(); }}
+          style={{ cursor: "pointer", opacity: .4, display: "flex", alignItems: "center", marginLeft: 2 }}
+          onMouseEnter={e => e.currentTarget.style.opacity = 1}
+          onMouseLeave={e => e.currentTarget.style.opacity = .4}
+        >{I.X(10)}</span>
+      )}
+    </span>
+  );
+}
+
+// ── Thumb (文件缩略图) ───────────────────────────────────
+function Thumb({ file, size = 72 }) {
+  const [url] = useState(() => (file instanceof Blob || file instanceof File) ? URL.createObjectURL(file) : "");
+  const t = ft(file);
+  useEffect(() => {
+    return () => { if (url) URL.revokeObjectURL(url); };
+  }, [url]);
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: V.r, overflow: "hidden", flexShrink: 0,
+      background: V.muted, border: `1px solid ${V.border}`,
+      display: "flex", alignItems: "center", justifyContent: "center",
+    }}>
+      {(t === "image" && url) ? <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        : (t === "video" && url) ? <video src={url} muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          : <span style={{ color: V.fgMuted }}>{I.Img()}</span>}
+    </div>
+  );
+}
+
+// ── CategorySelect (类别选择下拉) ────────────────────────
+/**
+ * 类别选择下拉组件，渲染 CATEGORIES 列表供用户选择
+ * @param {string} value - 当前选中的 catId
+ * @param {function} onChange - 选中后回调，参数为 catId
+ */
+function CategorySelect({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const cur = CATEGORIES.find(c => c.id === value);
+  return (
+    <div style={{ position: "relative" }}>
+      <div onClick={() => setOpen(!open)} style={{
+        display: "flex", alignItems: "center", gap: 8, padding: "8px 12px",
+        border: `1px solid ${V.border}`, borderRadius: V.r, cursor: "pointer",
+        fontSize: 13, color: cur ? V.fg : V.fgMuted, background: V.bg,
+      }}
+        onMouseEnter={e => e.currentTarget.style.borderColor = "#D1D5DB"}
+        onMouseLeave={e => e.currentTarget.style.borderColor = V.border}
+      >
+        {I.Folder(14)}
+        <span style={{ flex: 1 }}>{cur ? cur.name : "选择类别..."}</span>
+        <span style={{ color: V.fgMuted, transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }}>{I.ChevD()}</span>
+      </div>
+      {open && (
+        <div style={{
+          position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, marginTop: 4,
+          background: V.bg, border: `1px solid ${V.border}`, borderRadius: V.r,
+          boxShadow: V.shMd, overflow: "hidden",
+        }}>
+          {CATEGORIES.map(c => {
+            const s = value === c.id;
+            return (
+              <div key={c.id} onClick={() => { onChange(c.id); setOpen(false); }} style={{
+                display: "flex", alignItems: "center", gap: 8, padding: "9px 14px",
+                cursor: "pointer", fontSize: 13, color: s ? V.blue : V.fg,
+                background: s ? V.blueBg : "transparent", fontWeight: s ? 500 : 400,
+              }}
+                onMouseEnter={e => { if (!s) e.currentTarget.style.background = V.muted; }}
+                onMouseLeave={e => { if (!s) e.currentTarget.style.background = s ? V.blueBg : "transparent"; }}
+              >
+                <span style={{ flex: 1 }}>{c.name}</span>
+                {s && <span style={{ color: V.blue }}>{I.Check(13)}</span>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── EntityPicker (实体选择器) ─────────────────────────────
+/**
+ * 实体选择/新建组件，支持从列表选择或内联创建新实体
+ * @param {Array} entities - 可选实体列表
+ * @param {string|null} value - 当前关联的实体 ID
+ * @param {function} onSelect - 选中实体回调，参数为 entId 或 null
+ * @param {function} onCreate - 新建实体回调，参数为 {id, name, catId} 对象
+ */
+function EntityPicker({ entities, value, onSelect, onCreate }) {
+  const [open, setOpen] = useState(false);
+  const [making, setMaking] = useState(false);
+  const [nn, setNn] = useState(""); const [nc, setNc] = useState("");
+  const ent = entities.find(e => e.id === value);
+  return (
+    <div style={{ position: "relative" }}>
+      <div onClick={() => setOpen(!open)} style={{
+        display: "flex", alignItems: "center", gap: 8, padding: "8px 12px",
+        border: `1px solid ${V.border}`, borderRadius: V.r, cursor: "pointer",
+        fontSize: 13, color: ent ? V.fg : V.fgMuted, background: V.bg,
+      }}
+        onMouseEnter={e => e.currentTarget.style.borderColor = "#D1D5DB"}
+        onMouseLeave={e => e.currentTarget.style.borderColor = V.border}
+      >
+        {I.Cube(14)} <span style={{ flex: 1 }}>{ent ? ent.name : "选择或创建实体..."}</span>
+        <span style={{ color: V.fgMuted, transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }}>{I.ChevD()}</span>
+      </div>
+      {open && (
+        <div style={{ position: "absolute", bottom: "100%", left: 0, right: 0, zIndex: 50, marginBottom: 4, background: V.bg, border: `1px solid ${V.border}`, borderRadius: V.r, boxShadow: V.shMd, maxHeight: 260, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <div style={{ overflowY: "auto", flex: 1 }}>
+            <div onClick={() => { onSelect(null); setOpen(false); }} style={{ padding: "8px 14px", cursor: "pointer", fontSize: 13, color: !value ? V.blue : V.fgMuted }}
+              onMouseEnter={e => e.currentTarget.style.background = V.muted} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>不关联</div>
+            {entities.map(en => (
+              <div key={en.id} onClick={() => { onSelect(en.id); setOpen(false); }} style={{ padding: "8px 14px", cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", gap: 6, color: value === en.id ? V.blue : V.fg, background: value === en.id ? V.blueBg : "transparent" }}
+                onMouseEnter={e => { if (value !== en.id) e.currentTarget.style.background = V.muted; }}
+                onMouseLeave={e => { if (value !== en.id) e.currentTarget.style.background = value === en.id ? V.blueBg : "transparent"; }}
+              >{I.Cube(12)} <span>{en.name}</span>{en.catId && <span style={{ marginLeft: "auto", fontSize: 11, color: V.fgMuted }}>{CATEGORIES.find(c => c.id === en.catId)?.name}</span>}</div>
+            ))}
+          </div>
+          <div style={{ borderTop: `1px solid ${V.border}`, padding: 10 }}>
+            {!making ? (
+              <button onClick={() => setMaking(true)} style={{ ...btnStyle("outline"), width: "100%" }}>{I.Plus(12)} 新建实体</button>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <input autoFocus value={nn} onChange={e => setNn(e.target.value)} placeholder="实体名称" style={{ width: "100%", padding: "7px 10px", border: `1px solid ${V.border}`, borderRadius: V.r, fontSize: 13, fontFamily: font, color: V.fg, outline: "none", boxSizing: "border-box" }} />
+                <select value={nc} onChange={e => setNc(e.target.value)} style={{ width: "100%", padding: "7px 10px", border: `1px solid ${V.border}`, borderRadius: V.r, fontSize: 13, fontFamily: font, color: V.fg, outline: "none", boxSizing: "border-box", background: V.bg }}>
+                  <option value="">所属类别（可选）</option>
+                  {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button onClick={() => setMaking(false)} style={{ ...btnStyle("outline"), flex: 1, padding: "6px 0" }}>取消</button>
+                  <button onClick={() => { if (!nn.trim()) return; const en = { id: uid(), name: nn.trim(), catId: nc || null }; onCreate(en); onSelect(en.id); setNn(""); setNc(""); setMaking(false); setOpen(false); }} style={{ ...btnStyle("default"), flex: 1, padding: "6px 0", opacity: nn.trim() ? 1 : .4 }}>创建</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── TagModal (标签选择弹窗) ──────────────────────────────
+/**
+ * 标签选择弹窗，按维度分 Tab 浏览标签，支持搜索、全选/清空、已选预览
+ * @param {string[]} selected - 已选标签 ID 列表
+ * @param {string} catId - 当前资产的类别 ID，用于过滤相关维度
+ * @param {function} onConfirm - 确认回调，参数为选中的标签 ID 数组
+ * @param {function} onClose - 关闭弹窗回调
+ */
+function TagModal({ selected, catId, onConfirm, onClose }) {
+  const [sel, setSel] = useState(() => new Set(selected));
+  const [search, setSearch] = useState("");
+
+  // 按类别过滤维度；若该类别无专属维度则回退显示所有维度
+  const filteredDims = useMemo(() => {
+    const d = TAG_DIMS.filter(dim => dim.catId === catId);
+    return d.length ? d : TAG_DIMS;
+  }, [catId]);
+
+  const [ag, setAg] = useState(filteredDims[0]?.id || null);
+
+  const toggle = id => setSel(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
+  const sRes = useMemo(() => {
+    if (!search.trim()) return null;
+    const q = search.toLowerCase();
+    return ALL_TAGS.filter(t => t.catId === catId && (t.name.toLowerCase().includes(q) || t.gName.toLowerCase().includes(q) || t.dName.toLowerCase().includes(q)));
+  }, [search, catId]);
+
+  const cntG = gid => {
+    const dim = filteredDims.find(x => x.id === gid);
+    if (!dim) return 0;
+    let c = 0;
+    dim.groups.forEach(g => g.tagObjs.forEach(t => { if (sel.has(t.id)) c++; }));
+    return c;
+  };
+
+  const ModalCBox = ({ on, onClick: oc }) => (
+    <div onClick={oc} style={{
+      width: 16, height: 16, borderRadius: 4, flexShrink: 0, cursor: "pointer",
+      border: on ? "none" : `1.5px solid ${V.border}`,
+      background: on ? V.primary : V.bg,
+      display: "flex", alignItems: "center", justifyContent: "center", transition: "all .1s",
+    }}>{on && <span style={{ color: "#fff" }}>{I.Check(10)}</span>}</div>
+  );
+
+  const selArr = Array.from(sel);
+  const activeDim = filteredDims.find(d => d.id === ag) || filteredDims[0];
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)" }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{
+        width: 820, maxWidth: "95vw", height: 600, maxHeight: "85vh",
+        background: V.bg, border: `1px solid ${V.border}`, borderRadius: V.rLg,
+        display: "flex", flexDirection: "column", overflow: "hidden",
+        boxShadow: V.shLg, animation: "modalFade .18s ease",
+      }}>
+        <div style={{ padding: "16px 20px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${V.border}`, flexShrink: 0 }}>
+          <span style={{ color: V.fgSoft }}>{I.Tag(16)}</span>
+          <span style={{ fontSize: 15, fontWeight: 600 }}>选择标签 | 当前分类: {CATEGORIES.find(c => c.id === catId)?.name || ""}</span>
+          <span style={{ fontSize: 12, color: V.fgMuted }}>已选 {selArr.length} 个</span>
+          <span style={{ flex: 1 }} />
+          <button onClick={onClose} style={{ ...btnStyle("ghost"), padding: 6, borderRadius: 6 }}>{I.X(16)}</button>
+        </div>
+
+        <div style={{ padding: "10px 16px", borderBottom: `1px solid ${V.border}`, flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 12px", border: `1px solid ${V.border}`, borderRadius: V.r }}>
+            <span style={{ color: V.fgMuted }}>{I.Search(14)}</span>
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索标签 / 二级组 / 一级组..."
+              style={{ flex: 1, border: "none", outline: "none", fontSize: 13, fontFamily: font, color: V.fg, background: "transparent" }} />
+            {search && <button onClick={() => setSearch("")} style={{ ...btnStyle("ghost"), padding: 2 }}>{I.X(12)}</button>}
+          </div>
+        </div>
+
+        {selArr.length > 0 && (
+          <div style={{ padding: "8px 16px", borderBottom: `1px solid ${V.border}`, flexShrink: 0, display: "flex", flexWrap: "wrap", gap: 4, maxHeight: 64, overflowY: "auto" }}>
+            {selArr.map(id => {
+              const t = tagById(id); return t ? (
+                <span key={id} onClick={() => toggle(id)} style={{ display: "inline-flex", alignItems: "center", gap: 3, cursor: "pointer", padding: "3px 8px", borderRadius: V.rFull, fontSize: 12, fontWeight: 500, background: V.primary, color: V.primaryFg }}>{t.name} {I.X(10)}</span>
+              ) : null;
+            })}
+          </div>
+        )}
+
+        <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+          {!sRes && (
+            <div style={{ width: 180, flexShrink: 0, borderRight: `1px solid ${V.border}`, overflowY: "auto", background: V.muted }}>
+              {filteredDims.map(dim => {
+                const isA = ag === dim.id; const cnt = cntG(dim.id);
+                return (
+                  <div key={dim.id} onClick={() => setAg(dim.id)} style={{
+                    display: "flex", alignItems: "center", gap: 6, padding: "12px 14px", cursor: "pointer", fontSize: 13,
+                    fontWeight: isA ? 600 : 400, color: isA ? V.fg : V.fgSoft,
+                    background: isA ? V.bg : "transparent",
+                    borderRight: isA ? `2px solid ${V.primary}` : "2px solid transparent",
+                  }}
+                    onMouseEnter={e => { if (!isA) e.currentTarget.style.background = "#F3F4F6"; }}
+                    onMouseLeave={e => { if (!isA) e.currentTarget.style.background = "transparent"; }}
+                  >
+                    <span style={{ flex: 1 }}>{dim.name}{dim.isRequired && <span style={{ color: V.destructive, marginLeft: 2 }}>*</span>}</span>
+                    {cnt > 0 && <span style={{ fontSize: 10, fontWeight: 600, padding: "0 6px", borderRadius: V.rFull, minWidth: 18, textAlign: "center", background: V.primary, color: V.primaryFg, lineHeight: "18px" }}>{cnt}</span>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div style={{ flex: 1, overflowY: "auto", padding: sRes ? 0 : "12px 16px", background: V.bg }}>
+            {sRes ? (
+              sRes.length === 0 ? <div style={{ padding: 40, textAlign: "center", color: V.fgMuted, fontSize: 13 }}>没有匹配的标签</div>
+                : sRes.map(t => {
+                  const s = sel.has(t.id); return (
+                    <div key={t.id} onClick={() => toggle(t.id)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 18px", cursor: "pointer", borderBottom: `1px solid #f1f5f9` }}
+                      onMouseEnter={e => e.currentTarget.style.background = V.muted}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                    ><ModalCBox on={s} onClick={() => { }} /><span style={{ fontSize: 13, color: s ? V.fg : V.fgSoft, fontWeight: s ? 500 : 400 }}>{t.name}</span><span style={{ fontSize: 11, color: V.fgMuted, marginLeft: "auto", fontFamily: mono }}>{t.dName} / {t.gName}</span></div>
+                  );
+                })
+            ) : activeDim ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {activeDim.groups.map(sg => {
+                  const sgCnt = sg.tagObjs.filter(t => sel.has(t.id)).length;
+                  return (
+                    <div key={sg.id} style={{ border: `1px solid ${V.border}`, borderRadius: V.r }}>
+                      <div style={{ padding: "8px 12px", borderBottom: `1px solid ${V.border}`, background: V.muted, display: "flex", alignItems: "center", gap: 8, borderTopLeftRadius: V.r, borderTopRightRadius: V.r }}>
+                        <span style={{ fontSize: 13, fontWeight: 600 }}>{sg.name}</span>
+                        <span style={{ fontSize: 11, color: V.fgMuted }}>{sgCnt}/{sg.tagObjs.length}</span>
+                        <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
+                          <button onClick={() => { const ns = new Set(sel); sg.tagObjs.forEach(t => ns.add(t.id)); setSel(ns); }} style={{ ...btnStyle("ghost"), fontSize: 11, padding: "2px 6px", color: V.blue }}>全选</button>
+                          <button onClick={() => { const ns = new Set(sel); sg.tagObjs.forEach(t => ns.delete(t.id)); setSel(ns); }} style={{ ...btnStyle("ghost"), fontSize: 11, padding: "2px 6px", color: V.fgMuted }}>清空</button>
+                        </div>
+                      </div>
+                      <div style={{ padding: "10px", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
+                        {sg.tagObjs.map(t => {
+                          const s = sel.has(t.id); return (
+                            <div key={t.id} onClick={() => toggle(t.id)} className="hover-tag" style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", fontSize: 13, color: V.fg }}>
+                              <ModalCBox on={s} onClick={() => { }} size={16} />
+                              <span style={{ paddingTop: 1, userSelect: "none", color: s ? V.fg : V.fgSoft, fontWeight: s ? 500 : 400 }}>{t.name}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <div style={{ padding: "12px 16px", borderTop: `1px solid ${V.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+          <button onClick={() => setSel(new Set())} style={{ ...btnStyle("ghost"), fontSize: 12, color: V.destructive }}>清除全部</button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={onClose} style={btnStyle("outline")}>取消</button>
+            <button onClick={() => onConfirm(selArr)} style={btnStyle("default")}>确认 ({selArr.length})</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+// ═══════════════════════════════════════════════════════════
+//  pages.js — 主界面页面级组件
+//  职责：TagSidebar（标签筛选侧栏）、DetailPanel（资产详情面板）
+//  依赖：data.js（TAG_DIMS, CATEGORIES, ENTITIES, tagById）、
+//        theme.js（V, I, font, mono, fmtSz, btnStyle）、
+//        components.js（CBox, Badge, TagModal）
+//  被依赖：app.js（App 组件渲染 TagSidebar 和 DetailPanel）
+// ═══════════════════════════════════════════════════════════
+
+// ── TagSidebar (标签筛选侧栏) ───────────────────────────
+/**
+ * 三级树形标签筛选侧栏（维度→组→标签），支持搜索、折叠、多选
+ * @param {string|null} activeCat - 当前激活的类别 ID，null 表示全部
+ * @param {Set} selectedTags - 已选中的标签 ID 集合
+ * @param {function} onToggle - 切换单个标签的选中状态，参数为 tagId
+ * @param {function} onClear - 清除所有已选标签
+ * @param {function} onHide - 隐藏侧栏回调
+ */
+function TagSidebar({ activeCat, selectedTags, onToggle, onClear, onHide }) {
+  // 默认只展开第一个维度，其余折叠（i !== 0 表示非首维度）
+  const [cDims, setCDims] = useState(() => {
+    const init = {};
+    TAG_DIMS.forEach((d, i) => { if (i !== 0) init[d.id] = true; });
+    return init;
+  });
+  // 默认只展开第一个维度的第一个组，其余折叠
+  const [cGrps, setCGrps] = useState(() => {
+    const init = {};
+    TAG_DIMS.forEach((d, i) => {
+      d.groups.forEach((g, j) => { if (i !== 0 || j !== 0) init[g.id] = true; });
+    });
+    return init;
+  });
+  const [q, setQ] = useState("");
+  const ql = q.toLowerCase();
+  const dimCnt = dim => { let c = 0; dim.groups.forEach(g => g.tagObjs.forEach(t => { if (selectedTags.has(t.id)) c++; })); return c; };
+  const grpCnt = g => g.tagObjs.filter(t => selectedTags.has(t.id)).length;
+  const filteredDims = useMemo(() => activeCat ? TAG_DIMS.filter(d => d.catId === activeCat) : TAG_DIMS, [activeCat]);
+
+  return (
+    <div style={{ width: 260, flexShrink: 0, borderRight: `1px solid ${V.border}`, display: "flex", flexDirection: "column", background: V.bg, overflow: "hidden" }}>
+      <div style={{ flexShrink: 0, padding: "12px 14px", borderBottom: `1px solid ${V.border}`, display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ color: V.fgSoft }}>{I.Filter(15)}</span>
+          <span style={{ fontSize: 14, fontWeight: 600 }}>标签筛选</span>
+          {onHide && (
+            <button onClick={onHide} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: V.fgMuted, display: "flex", alignItems: "center", justifyContent: "center", padding: 4, borderRadius: 4 }}
+              onMouseEnter={e => e.currentTarget.style.background = V.muted}
+              onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+            >
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" /></svg>
+            </button>
+          )}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", border: `1px solid ${V.border}`, borderRadius: 6, background: V.muted }}>
+          <span style={{ color: V.fgMuted }}>{I.Search(12)}</span>
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="搜索标签..."
+            style={{ flex: 1, border: "none", outline: "none", fontSize: 12, fontFamily: font, color: V.fg, background: "transparent" }} />
+          {q && <span onClick={() => setQ("")} style={{ cursor: "pointer", color: V.fgMuted, display: "flex" }}>{I.X(10)}</span>}
+        </div>
+      </div>
+      <div style={{ flex: 1, overflowY: "auto", padding: "4px 0" }}>
+        {filteredDims.map(dim => {
+          const fGroups = ql ? dim.groups.map(g => ({ ...g, tagObjs: g.tagObjs.filter(t => t.name.toLowerCase().includes(ql) || g.name.toLowerCase().includes(ql) || dim.name.toLowerCase().includes(ql)) })).filter(g => g.tagObjs.length > 0) : dim.groups;
+          if (ql && fGroups.length === 0) return null;
+          const isDC = cDims[dim.id] && !ql; const dc = dimCnt(dim);
+          return <div key={dim.id}>
+            <div onClick={() => setCDims(p => ({ ...p, [dim.id]: !p[dim.id] }))} className="hover-dim" style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", cursor: "pointer", background: V.muted, borderBottom: `1px solid ${V.border}`, borderTop: `1px solid ${V.border}`, marginTop: -1 }}>
+              <span style={{ transform: isDC ? "rotate(-90deg)" : "none", transition: "transform .12s", color: V.fgMuted, flexShrink: 0 }}>{I.ChevD(10)}</span>
+              <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: V.fg }}>{dim.name}</span>
+              {dc > 0 && <span style={{ fontSize: 9, fontWeight: 600, padding: "0 5px", borderRadius: V.rFull, background: V.blue, color: "#fff", lineHeight: "16px", minWidth: 16, textAlign: "center" }}>{dc}</span>}
+            </div>
+            {!isDC && fGroups.map(g => {
+              const isGC = cGrps[g.id] && !ql; const gc = grpCnt(g);
+              return <div key={g.id}>
+                <div onClick={() => setCGrps(p => ({ ...p, [g.id]: !p[g.id] }))} className="hover-group" style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 14px 6px 26px", cursor: "pointer" }}>
+                  <span style={{ transform: isGC ? "rotate(-90deg)" : "none", transition: "transform .12s", color: V.fgMuted, flexShrink: 0 }}>{I.ChevD(9)}</span>
+                  <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: V.fgSoft }}>{g.name}</span>
+                  <span style={{ fontSize: 10, color: V.fgMuted, fontFamily: mono, flexShrink: 0 }}>{g.tagObjs.length}</span>
+                  {gc > 0 && <span style={{ fontSize: 8, fontWeight: 600, padding: "0 4px", borderRadius: V.rFull, background: V.blue, color: "#fff", lineHeight: "14px", minWidth: 14, textAlign: "center", flexShrink: 0 }}>{gc}</span>}
+                </div>
+                {!isGC && <div style={{ padding: "0 14px 2px 40px" }}>{g.tagObjs.map(t => {
+                  const on = selectedTags.has(t.id);
+                  return <div key={t.id} onClick={() => onToggle(t.id)} className="hover-tag" style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 6px", cursor: "pointer", borderRadius: 4, fontSize: 12, color: on ? V.fg : V.fgSoft, fontWeight: on ? 500 : 400 }}>
+                    <CBox on={on} onClick={() => { }} size={14} /><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</span>
+                  </div>;
+                })}</div>}
+              </div>;
+            })}
+          </div>;
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── DetailPanel (资产详情面板) ───────────────────────────
+/**
+ * 资产详情面板，展示预览（支持全屏）、基本信息、标签编辑、下载/删除操作
+ * @param {Asset} asset - 当前选中的资产对象
+ * @param {function} onClose - 关闭面板回调
+ * @param {function} onUpdate - 更新资产回调，参数为修改后的 asset 对象
+ * @param {function} onDelete - 删除资产回调，参数为 asset.id
+ */
+function DetailPanel({ asset, onClose, onUpdate, onDelete }) {
+  const [tagOpen, setTagOpen] = useState(false);
+  const [fullScreen, setFullScreen] = useState(false);
+  const [mediaUrl, setMediaUrl] = useState("");
+
+  useEffect(() => {
+    if (asset && asset.file && (asset.file instanceof Blob || asset.file instanceof File)) {
+      const url = URL.createObjectURL(asset.file);
+      setMediaUrl(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setMediaUrl("");
+    }
+  }, [asset]);
+
+  if (!asset) return null;
+  const cat = CATEGORIES.find(c => c.id === asset.catId);
+  const ent = ENTITIES.find(e => e.id === asset.entId);
+
+  const handleDownload = () => {
+    if (mediaUrl) {
+      const a = document.createElement('a');
+      a.href = mediaUrl;
+      a.download = asset.file.name || asset.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } else {
+      alert('演示数据无法下载');
+    }
+  };
+
+  return (
+    <div style={{ width: 340, flexShrink: 0, borderLeft: `1px solid ${V.border}`, background: V.bg, display: "flex", flexDirection: "column", overflowY: "auto", animation: "panelSlide .2s ease" }}>
+      <div style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${V.border}` }}>
+        <span style={{ fontSize: 14, fontWeight: 600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>资产详情</span>
+        <button onClick={onClose} className="hover-detail-close" style={{ background: "none", border: "none", cursor: "pointer", color: V.fgMuted, display: "flex", padding: 4, borderRadius: 6 }}>{I.X(16)}</button>
+      </div>
+      <div onClick={() => setFullScreen(true)} style={{ position: "relative", aspectRatio: "4/3", background: asset.color || V.muted, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", overflow: "hidden" }}>
+        {mediaUrl ? (
+          asset.type === "image" ? (
+            <img src={mediaUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          ) : (
+            <video src={mediaUrl} muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          )
+        ) : (
+          <>
+            {asset.type === "video" && <div style={{ width: 48, height: 48, borderRadius: V.rFull, background: "rgba(0,0,0,.5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>{I.Play(24)}</div>}
+            {asset.type === "image" && <span style={{ color: "rgba(0,0,0,.15)", fontSize: 48 }}>{I.Img(48)}</span>}
+          </>
+        )}
+        <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0)", transition: "background .2s" }} onMouseEnter={e => e.currentTarget.style.background = "rgba(0,0,0,0.1)"} onMouseLeave={e => e.currentTarget.style.background = "rgba(0,0,0,0)"} />
+        <span style={{ position: "absolute", top: 8, right: 8, padding: "2px 8px", borderRadius: V.rFull, fontSize: 11, fontWeight: 500, fontFamily: mono, background: "rgba(255,255,255,.9)", color: V.fgSoft, zIndex: 2 }}>{asset.type}</span>
+      </div>
+      <div style={{ padding: "12px 16px", display: "flex", gap: 8, borderBottom: `1px solid ${V.border}` }}>
+        <button onClick={handleDownload} style={{ ...btnStyle("outline"), flex: 1, fontSize: 13, gap: 6, color: V.fg, borderColor: V.border }}>
+          {I.Download(14)} 下载
+        </button>
+        <button onClick={() => { if (window.confirm("确定要删除该资产吗？")) onDelete(asset.id); }} style={{ ...btnStyle("outline"), flex: 1, fontSize: 13, gap: 6, color: V.destructive, borderColor: "rgba(239, 68, 68, 0.3)", background: "rgba(239, 68, 68, 0.05)" }}>
+          {I.Trash(14)} 删除
+        </button>
+      </div>
+      <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: V.fg, marginBottom: 4, wordBreak: "break-all" }}>{asset.name}</div>
+          <div style={{ display: "flex", gap: 12, fontSize: 12, color: V.fgMuted, fontFamily: mono }}><span>{fmtSz(asset.size)}</span><span>{asset.date}</span></div>
+        </div>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 500, color: V.fgMuted, marginBottom: 6 }}>类别</div>
+          {cat ? <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: V.rFull, fontSize: 13, fontWeight: 500, background: V.amberBg, color: "#92400E" }}>{cat.icon} {cat.name}</span> : <span style={{ fontSize: 13, color: V.fgMuted }}>未分类</span>}
+        </div>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+            <span style={{ fontSize: 12, fontWeight: 500, color: V.fgMuted }}>标签</span>
+            <button onClick={() => setTagOpen(true)} style={{ ...btnStyle("ghost"), padding: "2px 6px", fontSize: 12, color: V.blue, background: "transparent" }}>编辑标签</button>
+          </div>
+          {asset.tags.length > 0 ? <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{asset.tags.map(tid => { const t = tagById(tid); return t ? <Badge key={tid} onRemove={() => onUpdate({ ...asset, tags: asset.tags.filter(x => x !== tid) })}>{t.dName} · {t.name}</Badge> : null; })}</div> : <span style={{ fontSize: 13, color: V.fgMuted }}>无标签</span>}
+        </div>
+        {ent && <div><div style={{ fontSize: 12, fontWeight: 500, color: V.fgMuted, marginBottom: 6 }}>关联实体</div><span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: V.rFull, fontSize: 13, fontWeight: 500, background: V.purpleBg, color: V.purple }}>{I.Cube(12)} {ent.name}</span></div>}
+      </div>
+      {tagOpen && <TagModal catId={asset.catId} selected={asset.tags} onConfirm={t => { onUpdate({ ...asset, tags: t }); setTagOpen(false); }} onClose={() => setTagOpen(false)} />}
+
+      {fullScreen && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,0.9)", display: "flex", alignItems: "center", justifyContent: "center", animation: "fadeIn .2s ease" }} onClick={() => setFullScreen(false)}>
+          <button style={{ position: "absolute", top: 20, right: 20, background: "rgba(255,255,255,.1)", border: "none", color: "#fff", padding: 8, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setFullScreen(false)}>
+            {I.X(24)}
+          </button>
+          <div onClick={e => e.stopPropagation()} style={{ maxWidth: "90%", maxHeight: "90%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {mediaUrl ? (
+              asset.type === "image" ? (
+                <img src={mediaUrl} style={{ maxWidth: "100%", maxHeight: "90vh", objectFit: "contain", borderRadius: 8 }} />
+              ) : (
+                <video src={mediaUrl} controls autoPlay style={{ maxWidth: "100%", maxHeight: "90vh", objectFit: "contain", borderRadius: 8 }} />
+              )
+            ) : (
+              <div style={{ color: "rgba(255,255,255,.5)", fontSize: 16, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+                {asset.type === "image" ? <span style={{ fontSize: 64 }}>{I.Img(64)}</span> : <span style={{ fontSize: 64 }}>{I.Vid(64)}</span>}
+                演示数据无真实文件可预览
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+// ═══════════════════════════════════════════════════════════
+//  upload.js — 上传流程组件
+//  职责：AssetCard（单资产卡片编辑）、BatchBar（批量操作）、
+//        UploadApp（上传主界面）、UploadModal（弹窗包装）
+//  依赖：data.js（CATEGORIES, TAG_DIMS, ENTITIES, tagById, CL）、
+//        theme.js（V, I, font, mono, fmtSz, ft, isValid, uid, btnStyle, readEntries）、
+//        components.js（Thumb, CategorySelect, EntityPicker, Badge, TagModal）
+//  被依赖：app.js（App 通过 UploadModal 触发上传流程）
+// ═══════════════════════════════════════════════════════════
+
+// ── AssetCard (上传流程中的单个资产卡片) ─────────────────
+/**
+ * 上传流程中的单个资产编辑卡片，可设置类别、标签、关联实体
+ * @param {Object} asset - 待上传资产 {id, file, catId, tags[], entId}
+ * @param {Array} entities - 可关联的实体列表
+ * @param {function} onUpdate - 资产信息更新回调
+ * @param {function} onRemove - 移除该资产回调
+ * @param {function} onNewEntity - 新建实体回调
+ */
+function AssetCard({ asset, entities, onUpdate, onRemove, onNewEntity }) {
+  const [tagOpen, setTagOpen] = useState(false);
+  const [adv, setAdv] = useState(!!asset.entId);
+  const t = ft(asset.file);
+
+  return (
+    <div style={{ background: V.bg, border: `1px solid ${V.border}`, borderRadius: V.rLg, boxShadow: V.sh, transition: "box-shadow .2s" }}
+      onMouseEnter={e => e.currentTarget.style.boxShadow = V.shMd}
+      onMouseLeave={e => e.currentTarget.style.boxShadow = V.sh}
+    >
+      <div style={{ padding: 20 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 16 }}>
+          <Thumb file={asset.file} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: V.rFull, fontSize: 11, fontWeight: 500, fontFamily: mono, background: t === "image" ? V.blueBg : V.amberBg, color: t === "image" ? V.blue : V.amber }}>{t === "image" ? I.Img(11) : I.Vid(11)} {t}</span>
+              <span style={{ fontSize: 11, color: V.fgMuted, fontFamily: mono }}>{fmtSz(asset.file.size)}</span>
+              <button onClick={onRemove} style={{ marginLeft: "auto", ...btnStyle("ghost"), padding: 4, color: V.fgMuted, borderRadius: 6 }}
+                onMouseEnter={e => e.currentTarget.style.color = V.destructive}
+                onMouseLeave={e => e.currentTarget.style.color = V.fgMuted}>{I.Trash()}</button>
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 500, color: V.fg, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{asset.file.name}</div>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 14 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, fontWeight: 500, color: V.fg, marginBottom: 6 }}>{I.Folder(13)} 类别</label>
+          <CategorySelect value={asset.catId} onChange={v => onUpdate({ ...asset, catId: v })} />
+        </div>
+
+        <div>
+          <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, fontWeight: 500, color: V.fg, marginBottom: 6 }}>
+            {I.Tag(13)} 标签
+            {asset.tags.length > 0 && <span style={{ fontSize: 11, color: V.fgMuted, fontWeight: 400, fontFamily: mono }}>{asset.tags.length}</span>}
+          </label>
+          <div onClick={() => setTagOpen(true)} style={{
+            display: "flex", flexWrap: "wrap", gap: 5, alignItems: "center",
+            padding: "8px 12px", minHeight: 40,
+            border: `1px solid ${V.border}`, borderRadius: V.r, cursor: "pointer",
+          }}
+            onMouseEnter={e => e.currentTarget.style.borderColor = "#D1D5DB"}
+            onMouseLeave={e => e.currentTarget.style.borderColor = V.border}
+          >
+            {asset.tags.length === 0
+              ? <span style={{ color: V.fgMuted, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>{I.Plus(12)} 点击选择标签</span>
+              : asset.tags.map(tid => { const tg = tagById(tid); return tg ? <Badge key={tid} color={V.fg} bg={V.secondary} onRemove={() => onUpdate({ ...asset, tags: asset.tags.filter(x => x !== tid) })}>{tg.name}</Badge> : null; })}
+          </div>
+        </div>
+      </div>
+
+      {/* 高级选项区域（实体关联功能），当前通过 display:none 隐藏，待功能完善后启用 */}
+      <div style={{ display: "none", borderTop: `1px solid ${V.border}` }}>
+        <div onClick={() => setAdv(!adv)} style={{
+          display: "flex", alignItems: "center", gap: 6, padding: "10px 20px", cursor: "pointer",
+          fontSize: 12, color: V.fgMuted, fontWeight: 500,
+          background: adv ? V.muted : "transparent", transition: "background .1s",
+        }}
+          onMouseEnter={e => { if (!adv) e.currentTarget.style.background = V.muted; }}
+          onMouseLeave={e => { if (!adv) e.currentTarget.style.background = "transparent"; }}
+        >
+          {I.Settings(12)}
+          <span>高级选项</span>
+          {asset.entId && !adv && (
+            <span style={{ fontSize: 11, color: V.blue, fontWeight: 400, marginLeft: 4 }}>
+              已关联: {entities.find(e => e.id === asset.entId)?.name}
+            </span>
+          )}
+          <span style={{ marginLeft: "auto", transform: adv ? "rotate(180deg)" : "none", transition: "transform .15s" }}>{I.ChevD(10)}</span>
+        </div>
+        {adv && (
+          <div style={{ padding: "12px 20px 16px", background: V.muted }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, fontWeight: 500, color: V.fg, marginBottom: 6 }}>{I.Cube(13)} 关联实体</label>
+            <EntityPicker entities={entities} value={asset.entId}
+              onSelect={id => onUpdate({ ...asset, entId: id })}
+              onCreate={en => { onNewEntity(en); onUpdate({ ...asset, entId: en.id }); }} />
+          </div>
+        )}
+      </div>
+
+      {tagOpen && <TagModal catId={asset.catId} selected={asset.tags}
+        onConfirm={tg => { onUpdate({ ...asset, tags: tg }); setTagOpen(false); }}
+        onClose={() => setTagOpen(false)} />}
+    </div>
+  );
+}
+
+// ── BatchBar (批量操作栏) ────────────────────────────────
+function BatchBar({ onApplyCat, onApplyTags }) {
+  const [tagOpen, setTagOpen] = useState(false);
+  const [bTags, setBTags] = useState([]);
+  const [bCat, setBCat] = useState("");
+  return (
+    <div style={{ background: V.blueBg, border: "1px solid #BFDBFE", borderRadius: V.rLg, padding: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+        {I.Sparkle(16)}<span style={{ fontSize: 14, fontWeight: 600 }}>批量设置</span>
+        <span style={{ fontSize: 12, color: V.fgMuted }}>应用到全部资产</span>
+      </div>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+        <div style={{ width: 180 }}>
+          <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: V.fgSoft, marginBottom: 4 }}>类别（覆盖）</label>
+          <select value={bCat} onChange={e => setBCat(e.target.value)} style={{ width: "100%", padding: "8px 10px", border: `1px solid ${V.border}`, borderRadius: V.r, fontSize: 13, fontFamily: font, color: V.fg, background: V.bg, outline: "none", boxSizing: "border-box" }}>
+            <option value="">选择类别...</option>
+            {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+        {bCat && <button onClick={() => { onApplyCat(bCat); setBCat(""); }} style={{ ...btnStyle("default"), fontSize: 12, padding: "8px 14px" }}>应用类别</button>}
+        <div style={{ width: 1, height: 32, background: "#BFDBFE", margin: "0 4px" }} />
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: V.fgSoft, marginBottom: 4 }}>标签（追加）</label>
+          <div onClick={() => setTagOpen(true)} style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center", padding: "7px 12px", minHeight: 38, border: `1px solid ${V.border}`, borderRadius: V.r, cursor: "pointer", background: V.bg }}>
+            {bTags.length === 0
+              ? <span style={{ color: V.fgMuted, fontSize: 13 }}>{I.Plus(12)} 选择标签...</span>
+              : bTags.map(tid => { const tg = tagById(tid); return tg ? <Badge key={tid} color={V.fg} bg={V.secondary} onRemove={() => setBTags(p => p.filter(x => x !== tid))}>{tg.name}</Badge> : null; })}
+          </div>
+        </div>
+        {bTags.length > 0 && <button onClick={() => { onApplyTags(bTags); setBTags([]); }} style={{ ...btnStyle("default"), fontSize: 12, padding: "8px 14px" }}>应用标签</button>}
+      </div>
+      {tagOpen && <TagModal catId="scene" selected={bTags} onConfirm={t => { setBTags(t); setTagOpen(false); }} onClose={() => setTagOpen(false)} />}
+    </div>
+  );
+}
+
+// ── UploadApp (上传主界面) ───────────────────────────────
+/**
+ * 上传主界面，支持拖拽/选择文件及文件夹，管理待上传资产列表
+ * @param {function} onUpload - 确认上传回调，参数为 Asset[] 数组
+ * @param {function} onClose - 关闭上传界面回调
+ * 副作用：上传成功后通过 onUpload 将资产添加到 App 的 assets state
+ */
+function UploadApp({ onUpload, onClose }) {
+  const [assets, setAssets] = useState([]);
+  const [entities, setEntities] = useState(ENTITIES);
+  const [drag, setDrag] = useState(false);
+  const [done, setDone] = useState(false);
+  const fileRef = useRef(null);
+  const folderRef = useRef(null);
+
+  const addFiles = useCallback(files => {
+    const v = Array.from(files).filter(isValid);
+    if (v.length) setAssets(p => [...p, ...v.map(f => ({ id: uid(), file: f, catId: "scene", tags: [], entId: null }))]);
+  }, []);
+
+  const handleDrop = useCallback(async (e) => {
+    e.preventDefault(); setDrag(false);
+    const items = e.dataTransfer.items;
+    if (items) {
+      const allFiles = [];
+      const promises = [];
+      for (let i = 0; i < items.length; i++) {
+        const entry = items[i].webkitGetAsEntry?.();
+        if (entry) {
+          promises.push(readEntries(entry).then(fs => allFiles.push(...fs)));
+        } else {
+          const f = items[i].getAsFile();
+          if (f && isValid(f)) allFiles.push(f);
+        }
+      }
+      await Promise.all(promises);
+      if (allFiles.length) addFiles(allFiles);
+    } else {
+      addFiles(e.dataTransfer.files);
+    }
+  }, [addFiles]);
+
+  const imgC = assets.filter(a => ft(a.file) === "image").length;
+  const vidC = assets.filter(a => ft(a.file) === "video").length;
+
+  return (
+    <div style={{ height: "100%", width: "100%", overflowY: "auto", position: "relative", fontFamily: font, color: V.fg, background: "#FAFAFA" }}>
+      <div style={{ maxWidth: 860, margin: "0 auto", padding: "48px 24px 80px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32 }}>
+          <div>
+            <h1 style={{ margin: "0 0 6px", fontSize: 28, fontWeight: 700, letterSpacing: -.5 }}>资产上传</h1>
+            <p style={{ margin: 0, fontSize: 14, color: V.fgMuted }}>上传图片或视频，支持文件与文件夹</p>
+          </div>
+          <button onClick={onClose} style={{ ...btnStyle("ghost"), padding: "6px 14px" }}>{I.X(16)} 关闭</button>
+        </div>
+
+        {done && (
+          <div style={{ position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)", zIndex: 10000, background: V.bg, border: `1px solid ${V.border}`, borderRadius: V.r, padding: "12px 24px", display: "flex", alignItems: "center", gap: 8, boxShadow: V.shLg, animation: "slideD .25s ease" }}>
+            <span style={{ color: V.green }}>{I.Check(16)}</span>
+            <span style={{ fontSize: 14, fontWeight: 500 }}>上传成功</span>
+          </div>
+        )}
+
+        <div onDragOver={e => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={handleDrop}
+          style={{
+            borderRadius: V.rLg, padding: assets.length ? "24px 0" : "44px 0",
+            border: `2px dashed ${drag ? V.ring : V.border}`,
+            background: drag ? V.blueBg : V.bg, textAlign: "center",
+            transition: "all .2s", marginBottom: 24, cursor: "default",
+          }}>
+          <input ref={fileRef} type="file" multiple accept="image/*,video/*" style={{ display: "none" }}
+            onChange={e => { addFiles(e.target.files); e.target.value = ""; }} />
+          <input ref={folderRef} type="file" multiple style={{ display: "none" }}
+            onChange={e => { addFiles(e.target.files); e.target.value = ""; }}
+            {...{ webkitdirectory: "", mozdirectory: "", directory: "" }} />
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, color: drag ? V.blue : V.fgMuted }}>
+            <div style={{ width: 48, height: 48, borderRadius: V.rLg, display: "flex", alignItems: "center", justifyContent: "center", background: drag ? "#DBEAFE" : V.muted, border: `1px solid ${drag ? "#93C5FD" : V.border}` }}>{I.Upload(22)}</div>
+            <div>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: drag ? V.blue : V.fgSoft }}>拖拽文件或文件夹到此处</p>
+              <p style={{ margin: "4px 0 0", fontSize: 12, color: V.fgMuted }}>JPG, PNG, GIF, WEBP, MP4, MOV — 自动过滤非媒体文件</p>
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+              <button onClick={() => fileRef.current?.click()} style={btnStyle("outline")}>{I.Upload(14)} 选择文件</button>
+              <button onClick={() => folderRef.current?.click()} style={btnStyle("outline")}>{I.Folder(14)} 选择文件夹</button>
+            </div>
+          </div>
+        </div>
+
+        {assets.length > 0 && !done && (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 15, fontWeight: 600 }}>已选择 <span style={{ color: V.blue }}>{assets.length}</span> 个文件</span>
+              <div style={{ display: "flex", gap: 6 }}>
+                {imgC > 0 && <Badge color={V.blue} bg={V.blueBg}>{I.Img(11)} {imgC} 图片</Badge>}
+                {vidC > 0 && <Badge color={V.amber} bg={V.amberBg}>{I.Vid(11)} {vidC} 视频</Badge>}
+              </div>
+              <span style={{ fontSize: 12, color: V.fgMuted, fontFamily: mono }}>{fmtSz(assets.reduce((s, a) => s + a.file.size, 0))}</span>
+            </div>
+
+            {assets.length >= 2 && (
+              <div style={{ marginBottom: 20 }}>
+                <BatchBar
+                  onApplyCat={c => setAssets(p => p.map(a => ({ ...a, catId: c })))}
+                  onApplyTags={tg => setAssets(p => p.map(a => ({ ...a, tags: Array.from(new Set([...a.tags, ...tg])) })))}
+                />
+              </div>
+            )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {assets.map(a => (
+                <AssetCard key={a.id} asset={a} entities={entities}
+                  onUpdate={u => setAssets(p => p.map(x => x.id === u.id ? u : x))}
+                  onRemove={() => setAssets(p => p.filter(x => x.id !== a.id))}
+                  onNewEntity={en => setEntities(p => [...p, en])} />
+              ))}
+            </div>
+
+            <div style={{ marginTop: 24, display: "flex", justifyContent: "flex-end", gap: 10 }}>
+              <button onClick={() => setAssets([])} style={btnStyle("outline")}>取消</button>
+              <button onClick={() => {
+                // 校验必选维度：每个 isRequired 维度下至少要有一个标签被选中
+                const errorMsgs = [];
+                for (const a of assets) {
+                  const catId = a.catId || "scene"; // 未选类别时默认归入"场景"
+                  const reqDims = TAG_DIMS.filter(d => d.catId === catId && d.isRequired);
+                  const missingDims = reqDims.filter(dim => !a.tags.some(tid => tagById(tid)?.dId === dim.id));
+                  if (missingDims.length > 0) {
+                    errorMsgs.push(`"${a.file.name}" 缺少必选标签: ${missingDims.map(d => d.name).join('、')}`);
+                  }
+                }
+                if (errorMsgs.length > 0) {
+                  alert("部分资产未选择必选标签：\n\n" + errorMsgs.slice(0, 5).join("\n") + (errorMsgs.length > 5 ? `\n...等 ${errorMsgs.length} 个资产` : ""));
+                  return;
+                }
+                if (onUpload) {
+                  onUpload(assets.map(a => ({
+                    id: a.id, name: a.file.name, type: ft(a.file),
+                    catId: a.catId || "scene", tags: a.tags, entId: a.entId,
+                    size: a.file.size,
+                    date: new Date().toISOString().slice(0, 10),
+                    color: CL[Math.floor(Math.random() * CL.length)]
+                  })));
+                  setDone(true); setTimeout(() => { setDone(false); setAssets([]); onClose?.(); }, 800);
+                } else {
+                  setDone(true); setTimeout(() => { setDone(false); setAssets([]); }, 2000);
+                }
+              }} style={btnStyle("default")}>上传 {assets.length} 个资产</button>
+            </div>
+          </>
+        )}
+
+        {assets.length === 0 && !done && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+            {[
+              { icon: I.Folder(20), title: "类别", desc: "场景、角色、生物、道具。每个资产归属唯一一个类别。", color: V.amber, bg: V.amberBg },
+              { icon: I.Tag(20), title: "标签", desc: "标签组+标签两级结构，弹窗选择，按维度分组，自由多选。", color: V.blue, bg: V.blueBg },
+              { icon: I.Folder(20), title: "文件夹上传", desc: "支持拖拽或选择整个文件夹，自动递归提取所有图片和视频文件。", color: V.green, bg: V.greenBg },
+            ].map(c => (
+              <div key={c.title} style={{ background: V.bg, border: `1px solid ${V.border}`, borderRadius: V.rLg, padding: 24, boxShadow: V.sh }}>
+                <div style={{ width: 40, height: 40, borderRadius: V.r, display: "flex", alignItems: "center", justifyContent: "center", background: c.bg, color: c.color, marginBottom: 14 }}>{c.icon}</div>
+                <h3 style={{ margin: "0 0 6px", fontSize: 15, fontWeight: 600 }}>{c.title}</h3>
+                <p style={{ margin: 0, fontSize: 13, color: V.fgMuted, lineHeight: 1.5 }}>{c.desc}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── UploadModal (上传弹窗包装) ───────────────────────────
+function UploadModal({ onClose, onUpload }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 999, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", animation: "fadeIn 0.2s ease" }}>
+      <div style={{ width: "95%", maxWidth: 1080, height: "90%", maxHeight: 860, background: "#fafafa", borderRadius: 16, overflow: "hidden", position: "relative", boxShadow: "0 20px 40px -8px rgba(0,0,0,0.15)" }}>
+        <UploadApp onClose={onClose} onUpload={onUpload} />
+      </div>
+    </div>
+  );
+}
+// ═══════════════════════════════════════════════════════════
+//  settings.js — 系统设置弹窗
+//  职责：SettingsModal（类别管理 + 标签维度树管理）
+//  依赖：data.js（CATEGORIES, TAG_DIMS, rebuildTags）、theme.js（V, I, btnStyle）
+//  被依赖：app.js（App 通过 showSettings 控制显隐）
+//  副作用：save() 直接修改全局 CATEGORIES/TAG_DIMS，并通过
+//          window.dispatchEvent('app_data_updated') 通知 App 刷新
+// ═══════════════════════════════════════════════════════════
+
+// ── SettingsModal (系统设置弹窗) ─────────────────────────
+/**
+ * 系统设置弹窗，包含类别管理和标签维度树管理两个 Tab
+ * @param {function} onClose - 关闭弹窗回调
+ * 副作用：save() 直接覆写全局 CATEGORIES/TAG_DIMS 并触发 'app_data_updated' 事件
+ */
+function SettingsModal({ onClose }) {
+  const [tab, setTab] = useState("cat");
+  const [cats, setCats] = useState(() => JSON.parse(JSON.stringify(CATEGORIES)));
+  const [dims, setDims] = useState(() => JSON.parse(JSON.stringify(TAG_DIMS)));
+  const [activeCat, setActiveCat] = useState(() => CATEGORIES[0]?.id || null);
+  const [collapsedDims, setCollapsedDims] = useState({});
+
+  const save = () => {
+    CATEGORIES = cats;
+    TAG_DIMS = dims;
+    rebuildTags(TAG_DIMS);
+    window.dispatchEvent(new Event('app_data_updated'));
+    onClose();
+  };
+
+  const addCat = () => {
+    const id = "c" + Date.now();
+    setCats([...cats, { id, name: "新类别", icon: "📦" }]);
+  };
+  const updateCat = (id, name) => setCats(cats.map(c => c.id === id ? { ...c, name } : c));
+
+  const addDim = (catId) => {
+    if (!catId) return;
+    const id = "d" + Date.now();
+    setDims([...dims, { id, catId, name: "新标签维度", groups: [] }]);
+  };
+  const updateDim = (id, name) => setDims(dims.map(d => d.id === id ? { ...d, name } : d));
+  const toggleDimRequired = (id) => setDims(dims.map(d => d.id === id ? { ...d, isRequired: !d.isRequired } : d));
+
+  const addGrp = (dimId) => {
+    const id = "g" + Date.now();
+    setDims(dims.map(d => {
+      if (d.id === dimId) return { ...d, groups: [...d.groups, { id, name: "新标签组", tags: [] }] };
+      return d;
+    }));
+    setTimeout(() => {
+      const el = document.getElementById("grp-" + id);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
+  };
+  const updateGrp = (dimId, grpId, name) => {
+    setDims(dims.map(d => {
+      if (d.id === dimId) return { ...d, groups: d.groups.map(g => g.id === grpId ? { ...g, name } : g) };
+      return d;
+    }));
+  };
+
+  const addTagName = (dimId, grpId) => {
+    const name = window.prompt("请输入新标签名称：");
+    if (!name || !name.trim()) return;
+    setDims(dims.map(d => {
+      if (d.id === dimId) {
+        return {
+          ...d, groups: d.groups.map(g => {
+            if (g.id === grpId) {
+              if (g.tags.includes(name.trim())) return g;
+              return { ...g, tags: [...g.tags, name.trim()] };
+            }
+            return g;
+          })
+        };
+      }
+      return d;
+    }));
+  };
+  const updateTagName = (dimId, grpId, oldName) => {
+    const name = window.prompt("请修改标签名称：", oldName);
+    if (!name || !name.trim() || name.trim() === oldName) return;
+    setDims(dims.map(d => {
+      if (d.id === dimId) {
+        return {
+          ...d, groups: d.groups.map(g => {
+            if (g.id === grpId) return { ...g, tags: g.tags.map(t => t === oldName ? name.trim() : t) };
+            return g;
+          })
+        };
+      }
+      return d;
+    }));
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", animation: "fadeIn 0.2s ease" }}>
+      <div style={{ width: 800, height: "80%", background: V.bg, borderRadius: V.rLg, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: V.shLg }}>
+        <div style={{ padding: "16px 24px", borderBottom: `1px solid ${V.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <h2 style={{ margin: 0, fontSize: 18, color: V.fg }}>系统设置</h2>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: V.fgMuted }}>{I.X(20)}</button>
+        </div>
+
+        <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+          <div style={{ width: 160, borderRight: `1px solid ${V.border}`, background: V.bg, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+            <button onClick={() => setTab("cat")} style={{ padding: "10px 14px", textAlign: "left", borderRadius: V.r, border: "none", background: tab === "cat" ? V.blueBg : "transparent", color: tab === "cat" ? V.blue : V.fgSoft, cursor: "pointer", fontWeight: tab === "cat" ? 600 : 400 }}>类别管理</button>
+            <button onClick={() => setTab("tag")} style={{ padding: "10px 14px", textAlign: "left", borderRadius: V.r, border: "none", background: tab === "tag" ? V.blueBg : "transparent", color: tab === "tag" ? V.blue : V.fgSoft, cursor: "pointer", fontWeight: tab === "tag" ? 600 : 400 }}>标签树管理</button>
+          </div>
+
+          <div style={{ flex: 1, padding: 24, overflowY: "auto", background: V.muted }}>
+            {tab === "cat" ? (
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                  <h3 style={{ margin: 0, fontSize: 16, color: V.fg }}>所有类别</h3>
+                  <button onClick={addCat} style={{ ...btnStyle("outline"), padding: "6px 14px" }}>{I.Plus(14)} 添加类别</button>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {cats.map(c => (
+                    <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: V.bg, border: `1px solid ${V.border}`, borderRadius: V.r, boxShadow: V.sh }}>
+                      <span style={{ fontSize: 20 }}>{c.icon}</span>
+                      <input value={c.name} onChange={e => updateCat(c.id, e.target.value)} style={{ flex: 1, border: `1px solid transparent`, padding: "6px 10px", borderRadius: 6, fontSize: 14, outline: "none" }} placeholder="类别名称" onFocus={e => e.target.style.border = `1px solid ${V.border}`} onBlur={e => e.target.style.border = "1px solid transparent"} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+                  <select value={activeCat || ""} onChange={e => setActiveCat(e.target.value)} style={{ padding: "8px 12px", border: `1px solid ${V.border}`, borderRadius: V.r, fontSize: 14, outline: "none", minWidth: 140 }}>
+                    {cats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+                  </select>
+                  <button onClick={() => addDim(activeCat)} style={{ ...btnStyle("outline"), padding: "6px 14px" }}>{I.Plus(14)} 添加标签维度</button>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                  {dims.filter(d => d.catId === activeCat).map((d, dIdx) => (
+                    <div key={d.id} style={{ background: V.bg, border: `1px solid ${V.border}`, borderRadius: V.r, overflow: "hidden", boxShadow: V.sh }}>
+                      <div style={{ padding: "10px 14px", background: V.muted, borderBottom: collapsedDims[d.id] ? "none" : `1px solid ${V.border}`, display: "flex", gap: 8, alignItems: "center" }}>
+                        <span onClick={() => setCollapsedDims(p => ({ ...p, [d.id]: !p[d.id] }))} style={{ cursor: "pointer", display: "flex", alignItems: "center", color: V.fgMuted, transform: collapsedDims[d.id] ? "rotate(-90deg)" : "none", transition: "transform 0.15s" }}>{I.ChevD(12)}</span>
+                        <span style={{ color: V.fgMuted, fontSize: 12 }}>#{dIdx + 1}</span>
+                        <input value={d.name} onChange={e => updateDim(d.id, e.target.value)} style={{ flex: 1, fontWeight: 600, fontSize: 14, border: `1px solid transparent`, padding: "4px 8px", background: "transparent", borderRadius: 4, outline: "none" }} onFocus={e => e.target.style.border = `1px solid ${V.border}`} onBlur={e => e.target.style.border = "1px solid transparent"} placeholder="维度名称" />
+                        <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: V.fgSoft, cursor: "pointer", marginRight: 8, userSelect: "none" }}>
+                          <input type="checkbox" checked={!!d.isRequired} onChange={() => toggleDimRequired(d.id)} style={{ cursor: "pointer" }} />
+                          必选
+                        </label>
+                        <button onClick={() => { if (collapsedDims[d.id]) setCollapsedDims(p => ({ ...p, [d.id]: false })); addGrp(d.id); }} style={{ ...btnStyle("ghost"), fontSize: 12 }}>{I.Plus(12)} 添加组</button>
+                      </div>
+                      {!collapsedDims[d.id] && (
+                        <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 12 }}>
+                          {d.groups.map((g, gIdx) => (
+                            <div key={g.id} id={`grp-${g.id}`} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <span style={{ width: 4, height: 4, borderRadius: "50%", background: V.fgMuted }} />
+                                <input value={g.name} onChange={e => updateGrp(d.id, g.id, e.target.value)} style={{ fontSize: 13, color: V.fgSoft, border: `1px solid transparent`, padding: "4px 8px", background: "transparent", borderRadius: 4, outline: "none", width: 140 }} onFocus={e => e.target.style.border = `1px solid ${V.border}`} onBlur={e => e.target.style.border = "1px solid transparent"} placeholder="标签组名称" />
+                                <button onClick={() => addTagName(d.id, g.id)} style={{ ...btnStyle("ghost"), fontSize: 11, padding: "2px 6px" }}>{I.Plus(10)} 标签</button>
+                              </div>
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, paddingLeft: 20 }}>
+                                {g.tags.map((t, tIdx) => (
+                                  <span key={tIdx} onClick={() => updateTagName(d.id, g.id, t)} style={{ cursor: "pointer", background: V.secondary, padding: "4px 10px", borderRadius: V.rFull, fontSize: 12, border: `1px solid ${V.border}`, color: V.fgSoft }} title="点击修改名称">{t}</span>
+                                ))}
+                                {g.tags.length === 0 && <span style={{ fontSize: 12, color: V.fgMuted, padding: "4px 0" }}>无标签</span>}
+                              </div>
+                            </div>
+                          ))}
+                          {d.groups.length === 0 && <div style={{ color: V.fgMuted, fontSize: 12 }}>尚无标签组</div>}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {dims.filter(d => d.catId === activeCat).length === 0 && <div style={{ color: V.fgMuted, fontSize: 13, padding: 40, textAlign: "center" }}>该类别下暂无标签维度</div>}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div style={{ padding: "16px 24px", background: V.bg, borderTop: `1px solid ${V.border}`, display: "flex", justifyContent: "flex-end", gap: 12 }}>
+          <button onClick={onClose} style={btnStyle("outline")}>取消</button>
+          <button onClick={save} style={btnStyle("default")}>保存设置</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+// ═══════════════════════════════════════════════════════════
+//  app.js — 根组件 + 渲染入口
+//  职责：App 组件管理全局状态（资产列表、筛选、分页），组合所有页面组件
+//  依赖：data.js（INITIAL_ASSETS, CATEGORIES, tagById）、theme.js（V, I, font, mono, fmtSz, btnStyle）、
+//        components.js（Badge）、pages.js（TagSidebar, DetailPanel）、
+//        upload.js（UploadModal）、settings.js（SettingsModal）
+//  被依赖：无（本文件是入口，最后加载）
+// ═══════════════════════════════════════════════════════════
+
+/**
+ * App — 根组件，管理全局状态并组合所有子页面
+ * 入口：ReactDOM.createRoot 渲染
+ * 输入：无 props（从全局 INITIAL_ASSETS 初始化）
+ * 副作用：监听 'app_data_updated' 事件（由 SettingsModal 触发）以刷新视图
+ */
+function App() {
+  const [assets, setAssets] = useState(INITIAL_ASSETS);         // 写: handleUpload, DetailPanel.onDelete/onUpdate | 读: filtered, selAsset, 类别Tab计数
+  const [search, setSearch] = useState("");                      // 写: 顶栏搜索框 | 读: filtered
+  const [activeCat, setActiveCat] = useState(null);              // 写: 类别Tab点击 | 读: filtered, TagSidebar
+  const [selectedTags, setSelectedTags] = useState(new Set());   // 写: toggleTag, 清除按钮 | 读: filtered, TagSidebar, 筛选栏
+  const [viewMode, setViewMode] = useState("grid");              // 写: 视图切换按钮 | 读: 列表/网格渲染分支
+  const [selected, setSelected] = useState(null);                // 写: 卡片点击, DetailPanel.onClose/onDelete | 读: selAsset, 卡片高亮
+  const [sortBy, setSortBy] = useState("date");                  // 写: 排序下拉 | 读: filtered
+  const [showSidebar, setShowSidebar] = useState(true);          // 写: 筛选按钮, TagSidebar.onHide | 读: 侧栏显隐
+  const [showUpload, setShowUpload] = useState(false);           // 写: 上传按钮, UploadModal.onClose | 读: UploadModal 显隐
+  const [showSettings, setShowSettings] = useState(false);       // 写: 设置按钮, SettingsModal.onClose | 读: SettingsModal 显隐
+  // [UNCERTAIN] updateKey 值未被直接读取，仅通过 setUpdateKey 触发 re-render 以响应全局数据变更
+  const [updateKey, setUpdateKey] = useState(0);
+  const [page, setPage] = useState(1);                           // 写: 翻页按钮, 筛选条件变更时重置 | 读: visibleAssets 分页
+  const [pageSize, setPageSize] = useState(50);                  // 写: 每页条数下拉 | 读: visibleAssets 分页
+
+  const toggleTag = useCallback(id => { setSelectedTags(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; }); }, []);
+
+  useEffect(() => {
+    const handler = () => setUpdateKey(k => k + 1);
+    window.addEventListener('app_data_updated', handler);
+    return () => window.removeEventListener('app_data_updated', handler);
+  }, []);
+
+  // 筛选+排序管线：类别 → 搜索 → 标签（维度间 AND，维度内 OR）→ 排序
+  const filtered = useMemo(() => {
+    let list = assets;
+    if (activeCat) list = list.filter(a => a.catId === activeCat);
+    if (search.trim()) { const q = search.toLowerCase(); list = list.filter(a => a.name.toLowerCase().includes(q)); }
+    if (selectedTags.size > 0) {
+      // 将选中标签按维度分组，实现"维度间 AND、维度内 OR"的筛选逻辑
+      const tagsByDim = {};
+      selectedTags.forEach(tid => {
+        const t = tagById(tid);
+        if (t) { tagsByDim[t.dId] = tagsByDim[t.dId] || []; tagsByDim[t.dId].push(tid); }
+      });
+      list = list.filter(a => {
+        for (const dId in tagsByDim) {
+          if (!tagsByDim[dId].some(tid => a.tags.includes(tid))) return false;
+        }
+        return true;
+      });
+    }
+    if (sortBy === "date") list = [...list].sort((a, b) => b.date.localeCompare(a.date));
+    else if (sortBy === "name") list = [...list].sort((a, b) => a.name.localeCompare(b.name));
+    else if (sortBy === "size") list = [...list].sort((a, b) => b.size - a.size);
+    return list;
+  }, [assets, activeCat, search, selectedTags, sortBy]);
+
+  useEffect(() => { setPage(1); }, [activeCat, search, selectedTags, sortBy]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.max(1, Math.min(page, totalPages));
+  const visibleAssets = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  const selAsset = selected ? assets.find(a => a.id === selected) : null;
+
+  const handleUpload = (newAssets) => {
+    setAssets(prev => [...newAssets, ...prev]);
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", fontFamily: font, color: V.fg, background: "#FAFAFA", display: "flex", flexDirection: "column" }}>
+      <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+      {/* Top bar */}
+      <div style={{ background: V.bg, borderBottom: `1px solid ${V.border}`, padding: "0 24px", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 32, height: 56 }}>
+          <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0, width: 204, flexShrink: 0 }}>资产库</h1>
+          <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, padding: "9px 16px", border: `1px solid ${V.border}`, borderRadius: V.r, background: V.muted }}>
+            <span style={{ color: V.fgMuted }}>{I.Search(15)}</span>
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索资产名称..." style={{ flex: 1, border: "none", outline: "none", fontSize: 14, fontFamily: font, color: V.fg, background: "transparent" }} />
+            {search && <button onClick={() => setSearch("")} style={{ background: "none", border: "none", cursor: "pointer", color: V.fgMuted, display: "flex", padding: 0 }}>{I.X(15)}</button>}
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginLeft: "auto" }}>
+            <button onClick={() => setShowUpload(true)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: V.r, background: V.blue, color: "#fff", fontSize: 13, fontWeight: 500, border: "none", cursor: "pointer", boxShadow: V.sh }}>{I.Upload(16)} 上传资产</button>
+            <button onClick={() => setShowSettings(true)} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, borderRadius: V.r, background: V.bg, color: V.fgSoft, fontSize: 13, fontWeight: 500, border: `1px solid ${V.border}`, cursor: "pointer", boxSizing: "border-box" }}>{I.Settings(16)}</button>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 0, marginTop: -1 }}>
+          {[{ id: null, name: "全部", icon: "" }, ...CATEGORIES].map(c => {
+            const isA = activeCat === c.id; const count = c.id === null ? assets.length : assets.filter(a => a.catId === c.id).length;
+            return <button key={c.id || "all"} onClick={() => setActiveCat(isA && c.id !== null ? null : c.id)} style={{ padding: "10px 18px", fontSize: 13, fontWeight: isA ? 600 : 400, color: isA ? V.fg : V.fgMuted, background: "none", border: "none", borderBottom: isA ? `2px solid ${V.primary}` : "2px solid transparent", cursor: "pointer", fontFamily: font, transition: "all .12s" }}>{c.icon}{c.icon ? " " : ""}{c.name} <span style={{ fontSize: 11, color: V.fgMuted, fontFamily: mono, marginLeft: 4 }}>{count}</span></button>;
+          })}
+        </div>
+      </div>
+
+      {selectedTags.size > 0 && (
+        <div style={{ background: V.bg, borderBottom: `1px solid ${V.border}`, padding: "8px 24px", display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+          <span style={{ fontSize: 12, color: V.fgMuted, marginRight: 4 }}>筛选中:</span>
+          {Array.from(selectedTags).map(tid => { const t = tagById(tid); return t ? <Badge key={tid} onRemove={() => toggleTag(tid)}>{t.name}</Badge> : null; })}
+          <button onClick={() => setSelectedTags(new Set())} style={{ background: "none", border: "none", fontSize: 12, color: V.destructive, cursor: "pointer", fontFamily: font, marginLeft: 8 }}>清除全部</button>
+        </div>
+      )}
+
+      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+        {showSidebar && <TagSidebar activeCat={activeCat} selectedTags={selectedTags} onToggle={toggleTag} onClear={() => setSelectedTags(new Set())} onHide={() => setShowSidebar(false)} />}
+
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 20px 0", flexShrink: 0 }}>
+            <button onClick={() => setShowSidebar(!showSidebar)} style={{ display: "flex", alignItems: "center", gap: 6, height: 30, padding: "0 10px", border: `1px solid ${showSidebar ? V.primary : V.border}`, borderRadius: V.r, background: showSidebar ? V.primary : V.bg, color: showSidebar ? V.primaryFg : V.fgSoft, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: font, boxSizing: "border-box" }}>{I.Filter(13)} 筛选{selectedTags.size > 0 ? ` (${selectedTags.size})` : ""}</button>
+            <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{ padding: "0 10px", height: 30, border: `1px solid ${V.border}`, borderRadius: V.r, fontSize: 12, fontFamily: font, color: V.fgSoft, background: V.bg, outline: "none", cursor: "pointer", fontWeight: 500 }}>
+              <option value="date">按日期</option><option value="name">按名称</option><option value="size">按大小</option>
+            </select>
+            <div style={{ display: "flex", border: `1px solid ${V.border}`, borderRadius: V.r, overflow: "hidden", height: 30, boxSizing: "border-box" }}>
+              {[["grid", I.Grid], ["list", I.List]].map(([m, icon]) => <button key={m} onClick={() => setViewMode(m)} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: "100%", border: "none", cursor: "pointer", background: viewMode === m ? V.primary : V.bg, color: viewMode === m ? V.primaryFg : V.fgMuted }}>{icon(14)}</button>)}
+            </div>
+            <div style={{ fontSize: 12, color: V.fgMuted, fontFamily: font, marginLeft: 6 }}>
+              共 <span style={{ fontWeight: 600, color: V.fgSoft, fontFamily: mono }}>{filtered.length}</span> 条 &nbsp; 第 <span style={{ fontWeight: 600, color: V.fgSoft, fontFamily: mono }}>{currentPage}</span> / {totalPages} 页
+            </div>
+          </div>
+
+          <div style={{ flex: 1, overflowY: "auto", padding: 20 }}>
+            {filtered.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "60px 0", color: V.fgMuted }}>
+                <div style={{ fontSize: 40, marginBottom: 12, opacity: .3 }}>{I.Search(40)}</div>
+                <div style={{ fontSize: 15, fontWeight: 500 }}>没有找到匹配的资产</div>
+                <div style={{ fontSize: 13, marginTop: 4 }}>尝试调整搜索关键词或筛选条件</div>
+              </div>
+            ) : viewMode === "grid" ? (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 14 }}>
+                {visibleAssets.map(a => {
+                  const isSel = selected === a.id; const cat = CATEGORIES.find(c => c.id === a.catId);
+                  return <div key={a.id} onClick={() => setSelected(isSel ? null : a.id)} className={`app-grid-card ${isSel ? 'sel' : ''}`} style={{ borderRadius: V.rLg, overflow: "hidden", cursor: "pointer", border: `2px solid ${isSel ? V.ring : V.border}`, background: V.bg, boxShadow: isSel ? `0 0 0 2px ${V.ring}33` : V.sh, transition: "all .15s" }}>
+                    <div style={{ aspectRatio: "4/3", background: a.color, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+                      {a.type === "video" && <div style={{ width: 36, height: 36, borderRadius: V.rFull, background: "rgba(0,0,0,.4)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>{I.Play(18)}</div>}
+                      {a.type === "image" && <span style={{ color: "rgba(0,0,0,.1)", fontSize: 32 }}>{I.Img(32)}</span>}
+                      {cat && <span style={{ position: "absolute", top: 6, left: 6, padding: "1px 6px", borderRadius: V.rFull, fontSize: 10, background: "rgba(255,255,255,.85)", color: V.fgSoft, fontWeight: 500 }}>{cat.icon} {cat.name}</span>}
+                    </div>
+                    <div style={{ padding: "10px 12px" }}>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: V.fg, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 4 }}>{a.name}</div>
+                      <div style={{ display: "flex", gap: 8, fontSize: 11, color: V.fgMuted, fontFamily: mono }}><span>{fmtSz(a.size)}</span><span>{a.date}</span></div>
+                      {a.tags.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 6 }}>
+                        {a.tags.slice(0, 3).map(tid => { const t = tagById(tid); return t ? <span key={tid} style={{ fontSize: 10, padding: "1px 5px", borderRadius: V.rFull, background: V.secondary, color: V.fgSoft }}>{t.name}</span> : null; })}
+                        {a.tags.length > 3 && <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: V.rFull, background: V.secondary, color: V.fgMuted }}>+{a.tags.length - 3}</span>}
+                      </div>}
+                    </div>
+                  </div>;
+                })}
+              </div>
+            ) : (
+              <div style={{ border: `1px solid ${V.border}`, borderRadius: V.rLg, overflow: "hidden", background: V.bg }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 140px 100px", gap: 12, padding: "8px 16px", background: V.muted, borderBottom: `1px solid ${V.border}`, fontSize: 12, fontWeight: 600, color: V.fgMuted }}>
+                  <span>名称</span><span>类别</span><span>标签</span><span style={{ textAlign: "right" }}>大小</span>
+                </div>
+                {visibleAssets.map((a, i) => {
+                  const isSel = selected === a.id; const cat = CATEGORIES.find(c => c.id === a.catId);
+                  return <div key={a.id} onClick={() => setSelected(isSel ? null : a.id)} className={`app-list-card ${isSel ? 'sel' : ''}`} style={{ display: "grid", gridTemplateColumns: "1fr 80px 140px 100px", gap: 12, padding: "10px 16px", cursor: "pointer", background: isSel ? V.blueBg : i % 2 === 0 ? "transparent" : V.muted, borderBottom: `1px solid ${V.border}`, transition: "background .1s" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden" }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 6, background: a.color, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        {a.type === "video" ? <span style={{ color: "rgba(0,0,0,.25)" }}>{I.Vid(14)}</span> : <span style={{ color: "rgba(0,0,0,.15)" }}>{I.Img(14)}</span>}
+                      </div>
+                      <span style={{ fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center" }}>{cat ? <span style={{ fontSize: 12, color: V.fgSoft }}>{cat.icon} {cat.name}</span> : <span style={{ fontSize: 12, color: V.fgMuted }}>—</span>}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 3, overflow: "hidden" }}>
+                      {a.tags.slice(0, 2).map(tid => { const t = tagById(tid); return t ? <span key={tid} style={{ fontSize: 10, padding: "1px 5px", borderRadius: V.rFull, background: V.secondary, color: V.fgSoft, whiteSpace: "nowrap" }}>{t.name}</span> : null; })}
+                      {a.tags.length > 2 && <span style={{ fontSize: 10, color: V.fgMuted }}>+{a.tags.length - 2}</span>}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", fontSize: 12, color: V.fgMuted, fontFamily: mono }}>{fmtSz(a.size)}</div>
+                  </div>;
+                })}
+              </div>
+            )}
+            {filtered.length > 0 && (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 0", marginTop: 16, borderTop: `1px solid ${V.border}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ fontSize: 13, color: V.fgMuted }}>共 {filtered.length} 个资产</span>
+                  <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }} style={{ padding: "4px 8px", border: `1px solid ${V.border}`, borderRadius: V.r, fontSize: 13, fontFamily: font, color: V.fgSoft, background: V.bg, outline: "none", cursor: "pointer" }}>
+                    <option value={30}>30 条/页</option>
+                    <option value={50}>50 条/页</option>
+                    <option value={100}>100 条/页</option>
+                  </select>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} style={{ ...btnStyle("outline"), padding: "4px 12px", opacity: currentPage === 1 ? 0.5 : 1, cursor: currentPage === 1 ? "not-allowed" : "pointer" }}>上一页</button>
+                  <span style={{ fontSize: 13, color: V.fgMuted, minWidth: 60, textAlign: "center" }}>{currentPage} / {totalPages}</span>
+                  <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} style={{ ...btnStyle("outline"), padding: "4px 12px", opacity: currentPage === totalPages ? 0.5 : 1, cursor: currentPage === totalPages ? "not-allowed" : "pointer" }}>下一页</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {selAsset && <DetailPanel asset={selAsset} onClose={() => setSelected(null)} onUpdate={u => setAssets(p => p.map(a => a.id === u.id ? u : a))} onDelete={id => { setAssets(p => p.filter(a => a.id !== id)); setSelected(null); }} />}
+      </div>
+
+      {showUpload && <UploadModal onClose={() => setShowUpload(false)} onUpload={handleUpload} />}
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+  </script>
+</body>
+
+</html>

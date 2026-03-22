@@ -1,0 +1,26 @@
+# macOS 系统文件
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# 编辑器 / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 日志
+*.log
+npm-debug.log*
+
+# 临时文件
+*.tmp
+*.bak
+*.orig
+
+# 构建产物说明：
+# index.html 是构建产物，但本项目将其纳入版本控制，
+# 因为它是可直接运行的单文件版本，方便恢复任意历史状态。
+# 如需忽略，取消下方注释：
+# index.html

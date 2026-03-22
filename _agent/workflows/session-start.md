@@ -1,0 +1,26 @@
+---
+description: 项目开始时必须执行：读取 CLAUDE.md 了解项目规范
+---
+
+# 项目初始化规范读取
+
+每当开始在本项目（assetproject）工作前，**必须先读取项目根目录的 `CLAUDE.md`** 文件，以了解：
+
+1. 项目整体架构与技术栈
+2. 数据流说明与模块职责
+3. 新增页面/字段的标准步骤
+4. 命名规范和文件组织约定
+5. 打包成单 HTML 的注意事项
+6. 维护规范（CHANGELOG.md 和 CLAUDE.md 的更新规则）
+
+## 步骤
+
+1. 读取 `CLAUDE.md` 文件（路径：`/Users/silverry/Library/Mobile Documents/com~apple~CloudDocs/资产库/assetproject/CLAUDE.md`）
+2. 理解并遵守其中所有规范，再执行任何代码修改
+
+## 每次 session 结束的收尾动作（来自 CLAUDE.md §7）
+
+完成代码改动后，**必须**执行以下收尾：
+1. 更新 `CHANGELOG.md`（新增功能/页面 → 新建版本条目；小改动 → 追加到当前条目；架构调整 → 新建条目并标注"架构变更"）
+2. 更新 `CLAUDE.md` 受影响章节（目录结构变化、新增/删除页面、数据结构变化、新增可复用组件）
+3. 输出改动文件清单
