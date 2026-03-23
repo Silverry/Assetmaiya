@@ -18,24 +18,16 @@ function App() {
   const [search, setSearch] = useState("");                      // 写: 顶栏搜索框 | 读: filtered
   const [activeCat, setActiveCat] = useState(null);              // 写: 类别Tab点击 | 读: filtered, TagSidebar
   const [selectedTags, setSelectedTags] = useState(new Set());   // 写: toggleTag, 清除按钮 | 读: filtered, TagSidebar, 筛选栏
-  const [viewMode, setViewMode] = useState("grid");              // 写: 视图切换按钮 | 读: 列表/网格渲染分支
+  const [layoutMode, setLayoutMode] = useState("compact");       // 写: 布局切换按钮 | 读: 网格列数 ("compact"=多列, "wide"=3列)
   const [selected, setSelected] = useState(null);                // 写: 卡片点击, DetailPanel.onClose/onDelete | 读: selAsset, 卡片高亮
-  const [sortBy, setSortBy] = useState("date");                  // 写: 排序下拉 | 读: filtered
   const [showSidebar, setShowSidebar] = useState(true);          // 写: 筛选按钮, TagSidebar.onHide | 读: 侧栏显隐
   const [showUpload, setShowUpload] = useState(false);           // 写: 上传按钮, UploadModal.onClose | 读: UploadModal 显隐
   const [showSettings, setShowSettings] = useState(false);       // 写: 设置按钮, SettingsModal.onClose | 读: SettingsModal 显隐
-  // [UNCERTAIN] updateKey 值未被直接读取，仅通过 setUpdateKey 触发 re-render 以响应全局数据变更
-  const [updateKey, setUpdateKey] = useState(0);
+  const [updateKey, setUpdateKey] = useState(0);                  // 写: SettingsModal.onSave | 触发 re-render 以响应全局数据变更
   const [page, setPage] = useState(1);                           // 写: 翻页按钮, 筛选条件变更时重置 | 读: visibleAssets 分页
   const [pageSize, setPageSize] = useState(50);                  // 写: 每页条数下拉 | 读: visibleAssets 分页
 
   const toggleTag = useCallback(id => { setSelectedTags(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; }); }, []);
-
-  useEffect(() => {
-    const handler = () => setUpdateKey(k => k + 1);
-    window.addEventListener('app_data_updated', handler);
-    return () => window.removeEventListener('app_data_updated', handler);
-  }, []);
 
   // 筛选+排序管线：类别 → 搜索 → 标签（维度间 AND，维度内 OR）→ 排序
   const filtered = useMemo(() => {
@@ -56,13 +48,10 @@ function App() {
         return true;
       });
     }
-    if (sortBy === "date") list = [...list].sort((a, b) => b.date.localeCompare(a.date));
-    else if (sortBy === "name") list = [...list].sort((a, b) => a.name.localeCompare(b.name));
-    else if (sortBy === "size") list = [...list].sort((a, b) => b.size - a.size);
-    return list;
-  }, [assets, activeCat, search, selectedTags, sortBy]);
+    return [...list].sort((a, b) => b.date.localeCompare(a.date));
+  }, [assets, activeCat, search, selectedTags]);
 
-  useEffect(() => { setPage(1); }, [activeCat, search, selectedTags, sortBy]);
+  useEffect(() => { setPage(1); }, [activeCat, search, selectedTags]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.max(1, Math.min(page, totalPages));
@@ -114,11 +103,8 @@ function App() {
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 20px 0", flexShrink: 0 }}>
             <button onClick={() => setShowSidebar(!showSidebar)} style={{ display: "flex", alignItems: "center", gap: 6, height: 30, padding: "0 10px", border: `1px solid ${showSidebar ? V.primary : V.border}`, borderRadius: V.r, background: showSidebar ? V.primary : V.bg, color: showSidebar ? V.primaryFg : V.fgSoft, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: font, boxSizing: "border-box" }}>{I.Filter(13)} 筛选{selectedTags.size > 0 ? ` (${selectedTags.size})` : ""}</button>
-            <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{ padding: "0 10px", height: 30, border: `1px solid ${V.border}`, borderRadius: V.r, fontSize: 12, fontFamily: font, color: V.fgSoft, background: V.bg, outline: "none", cursor: "pointer", fontWeight: 500 }}>
-              <option value="date">按日期</option><option value="name">按名称</option><option value="size">按大小</option>
-            </select>
             <div style={{ display: "flex", border: `1px solid ${V.border}`, borderRadius: V.r, overflow: "hidden", height: 30, boxSizing: "border-box" }}>
-              {[["grid", I.Grid], ["list", I.List]].map(([m, icon]) => <button key={m} onClick={() => setViewMode(m)} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: "100%", border: "none", cursor: "pointer", background: viewMode === m ? V.primary : V.bg, color: viewMode === m ? V.primaryFg : V.fgMuted }}>{icon(14)}</button>)}
+              {[["compact", I.Grid, "多列"], ["wide", null, "3列"]].map(([m, icon, label]) => <button key={m} onClick={() => setLayoutMode(m)} title={label} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4, padding: "0 10px", height: "100%", border: "none", cursor: "pointer", fontSize: 12, fontFamily: font, background: layoutMode === m ? V.primary : V.bg, color: layoutMode === m ? V.primaryFg : V.fgMuted }}>{icon ? icon(14) : <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" d="M3 5h18M3 12h18M3 19h18M8 5v14M16 5v14" /></svg>}{label}</button>)}
             </div>
             <div style={{ fontSize: 12, color: V.fgMuted, fontFamily: font, marginLeft: 6 }}>
               共 <span style={{ fontWeight: 600, color: V.fgSoft, fontFamily: mono }}>{filtered.length}</span> 条 &nbsp; 第 <span style={{ fontWeight: 600, color: V.fgSoft, fontFamily: mono }}>{currentPage}</span> / {totalPages} 页
@@ -132,51 +118,27 @@ function App() {
                 <div style={{ fontSize: 15, fontWeight: 500 }}>没有找到匹配的资产</div>
                 <div style={{ fontSize: 13, marginTop: 4 }}>尝试调整搜索关键词或筛选条件</div>
               </div>
-            ) : viewMode === "grid" ? (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 14 }}>
-                {visibleAssets.map(a => {
-                  const isSel = selected === a.id; const cat = CATEGORIES.find(c => c.id === a.catId);
-                  return <div key={a.id} onClick={() => setSelected(isSel ? null : a.id)} className={`app-grid-card ${isSel ? 'sel' : ''}`} style={{ borderRadius: V.rLg, overflow: "hidden", cursor: "pointer", border: `2px solid ${isSel ? V.ring : V.border}`, background: V.bg, boxShadow: isSel ? `0 0 0 2px ${V.ring}33` : V.sh, transition: "all .15s" }}>
-                    <div style={{ aspectRatio: "4/3", background: a.color, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
-                      {a.type === "video" && <div style={{ width: 36, height: 36, borderRadius: V.rFull, background: "rgba(0,0,0,.4)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>{I.Play(18)}</div>}
-                      {a.type === "image" && <span style={{ color: "rgba(0,0,0,.1)", fontSize: 32 }}>{I.Img(32)}</span>}
-                      {cat && <span style={{ position: "absolute", top: 6, left: 6, padding: "1px 6px", borderRadius: V.rFull, fontSize: 10, background: "rgba(255,255,255,.85)", color: V.fgSoft, fontWeight: 500 }}>{cat.icon} {cat.name}</span>}
-                    </div>
-                    <div style={{ padding: "10px 12px" }}>
-                      <div style={{ fontSize: 13, fontWeight: 500, color: V.fg, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 4 }}>{a.name}</div>
-                      <div style={{ display: "flex", gap: 8, fontSize: 11, color: V.fgMuted, fontFamily: mono }}><span>{fmtSz(a.size)}</span><span>{a.date}</span></div>
-                      {(a.tags ?? []).length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 6 }}>
-                        {(a.tags ?? []).slice(0, 3).map(tid => { const t = tagById(tid); return t ? <span key={tid} style={{ fontSize: 10, padding: "1px 5px", borderRadius: V.rFull, background: V.secondary, color: V.fgSoft }}>{t.name}</span> : null; })}
-                        {(a.tags ?? []).length > 3 && <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: V.rFull, background: V.secondary, color: V.fgMuted }}>+{(a.tags ?? []).length - 3}</span>}
-                      </div>}
-                    </div>
-                  </div>;
-                })}
-              </div>
-            ) : (
-              <div style={{ border: `1px solid ${V.border}`, borderRadius: V.rLg, overflow: "hidden", background: V.bg }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 140px 100px", gap: 12, padding: "8px 16px", background: V.muted, borderBottom: `1px solid ${V.border}`, fontSize: 12, fontWeight: 600, color: V.fgMuted }}>
-                  <span>名称</span><span>类别</span><span>标签</span><span style={{ textAlign: "right" }}>大小</span>
-                </div>
-                {visibleAssets.map((a, i) => {
-                  const isSel = selected === a.id; const cat = CATEGORIES.find(c => c.id === a.catId);
-                  return <div key={a.id} onClick={() => setSelected(isSel ? null : a.id)} className={`app-list-card ${isSel ? 'sel' : ''}`} style={{ display: "grid", gridTemplateColumns: "1fr 80px 140px 100px", gap: 12, padding: "10px 16px", cursor: "pointer", background: isSel ? V.blueBg : i % 2 === 0 ? "transparent" : V.muted, borderBottom: `1px solid ${V.border}`, transition: "background .1s" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden" }}>
-                      <div style={{ width: 32, height: 32, borderRadius: 6, background: a.color, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        {a.type === "video" ? <span style={{ color: "rgba(0,0,0,.25)" }}>{I.Vid(14)}</span> : <span style={{ color: "rgba(0,0,0,.15)" }}>{I.Img(14)}</span>}
+            ) : (() => {
+              const cardRatio = activeCat === "scene" ? "16/9" : activeCat === "character" ? "9/16" : "1/1";
+              const cols = layoutMode === "wide" ? "repeat(3, 1fr)" : "repeat(auto-fill, minmax(180px, 1fr))";
+              return (
+                <div style={{ display: "grid", gridTemplateColumns: cols, gap: 14 }}>
+                  {visibleAssets.map(a => {
+                    const isSel = selected === a.id; const cat = CATEGORIES.find(c => c.id === a.catId);
+                    return <div key={a.id} onClick={() => setSelected(isSel ? null : a.id)} className={`app-grid-card ${isSel ? 'sel' : ''}`} style={{ borderRadius: V.rLg, overflow: "hidden", cursor: "pointer", border: `2px solid ${isSel ? V.ring : V.border}`, background: V.bg, boxShadow: isSel ? `0 0 0 2px ${V.ring}33` : V.sh, transition: "all .15s" }}>
+                      <div style={{ aspectRatio: cardRatio, background: a.color, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
+                        {a.type === "video" && <div style={{ width: 36, height: 36, borderRadius: V.rFull, background: "rgba(0,0,0,.4)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>{I.Play(18)}</div>}
+                        {a.type === "image" && <span style={{ color: "rgba(0,0,0,.1)", fontSize: 32 }}>{I.Img(32)}</span>}
+                        {cat && <span style={{ position: "absolute", top: 6, left: 6, padding: "1px 6px", borderRadius: V.rFull, fontSize: 10, background: "rgba(255,255,255,.85)", color: V.fgSoft, fontWeight: 500 }}>{cat.icon} {cat.name}</span>}
                       </div>
-                      <span style={{ fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center" }}>{cat ? <span style={{ fontSize: 12, color: V.fgSoft }}>{cat.icon} {cat.name}</span> : <span style={{ fontSize: 12, color: V.fgMuted }}>—</span>}</div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 3, overflow: "hidden" }}>
-                      {(a.tags ?? []).slice(0, 2).map(tid => { const t = tagById(tid); return t ? <span key={tid} style={{ fontSize: 10, padding: "1px 5px", borderRadius: V.rFull, background: V.secondary, color: V.fgSoft, whiteSpace: "nowrap" }}>{t.name}</span> : null; })}
-                      {(a.tags ?? []).length > 2 && <span style={{ fontSize: 10, color: V.fgMuted }}>+{(a.tags ?? []).length - 2}</span>}
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", fontSize: 12, color: V.fgMuted, fontFamily: mono }}>{fmtSz(a.size)}</div>
-                  </div>;
-                })}
-              </div>
-            )}
+                      <div style={{ padding: "8px 10px" }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: V.fg, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</div>
+                      </div>
+                    </div>;
+                  })}
+                </div>
+              );
+            })()}
             {filtered.length > 0 && (
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 0", marginTop: 16, borderTop: `1px solid ${V.border}` }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -201,7 +163,7 @@ function App() {
       </div>
 
       {showUpload && <UploadModal onClose={() => setShowUpload(false)} onUpload={handleUpload} />}
-      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} onSave={() => setUpdateKey(k => k + 1)} />}
     </div>
   );
 }
