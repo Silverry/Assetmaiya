@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>设计 Playground — 资产管理中心</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ui-bg: #0f0f0f;
+    --ui-surface: #1a1a1a;
+    --ui-border: #2a2a2a;
+    --ui-text: #e5e5e5;
+    --ui-muted: #888;
+    --ui-accent: #3b82f6;
+  }
+
+  body {
+    font-family: 'SF Mono', 'Geist Mono', monospace;
+    background: var(--ui-bg);
+    color: var(--ui-text);
+    height: 100vh;
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    grid-template-rows: 1fr auto;
+    overflow: hidden;
+  }
+
+  /* ── Controls Panel ─────────────────────────── */
+  #controls {
+    background: var(--ui-surface);
+    border-right: 1px solid var(--ui-border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    grid-row: 1 / 3;
+  }
+
+  #controls-header {
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--ui-border);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--ui-muted);
+    text-transform: uppercase;
+  }
+
+  #controls-header span {
+    display: block;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ui-text);
+    letter-spacing: 0;
+    text-transform: none;
+    margin-bottom: 2px;
+  }
+
+  .section {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--ui-border);
+  }
+
+  .section-title {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ui-muted);
+    margin-bottom: 12px;
+  }
+
+  .control-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .control-row:last-child { margin-bottom: 0; }
+
+  .control-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: var(--ui-text);
+  }
+
+  .control-value {
+    font-size: 11px;
+    color: var(--ui-muted);
+    font-family: 'SF Mono', monospace;
+  }
+
+  input[type="range"] {
+    width: 100%;
+    height: 4px;
+    appearance: none;
+    background: var(--ui-border);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--ui-accent);
+    cursor: pointer;
+    transition: transform .1s;
+  }
+  input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+  input[type="color"] {
+    width: 100%;
+    height: 32px;
+    border: 1px solid var(--ui-border);
+    border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+    padding: 2px;
+  }
+
+  /* Presets */
+  .presets-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .preset-btn {
+    padding: 7px 10px;
+    background: transparent;
+    border: 1px solid var(--ui-border);
+    border-radius: 6px;
+    color: var(--ui-text);
+    font-size: 11px;
+    font-family: 'SF Mono', monospace;
+    cursor: pointer;
+    transition: all .15s;
+    text-align: left;
+  }
+  .preset-btn:hover { background: #222; border-color: #3a3a3a; }
+  .preset-btn.active { border-color: var(--ui-accent); color: var(--ui-accent); background: #1e2a3a; }
+
+  .preset-name { font-weight: 600; display: block; margin-bottom: 2px; }
+  .preset-desc { font-size: 10px; color: var(--ui-muted); display: block; }
+
+  /* Toggle group */
+  .toggle-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+  }
+
+  .toggle-opt {
+    padding: 6px 10px;
+    background: transparent;
+    border: 1px solid var(--ui-border);
+    border-radius: 5px;
+    color: var(--ui-muted);
+    font-size: 11px;
+    font-family: 'SF Mono', monospace;
+    cursor: pointer;
+    text-align: center;
+    transition: all .15s;
+  }
+  .toggle-opt:hover { background: #222; }
+  .toggle-opt.active { background: #222; border-color: var(--ui-accent); color: var(--ui-accent); }
+
+  /* ── Preview Panel ───────────────────────────── */
+  #preview {
+    padding: 32px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+    background: #f3f4f6;
+  }
+
+  .preview-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #9ca3af;
+    align-self: flex-start;
+    font-family: 'SF Mono', monospace;
+  }
+
+  .preview-row {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    width: 100%;
+    max-width: 680px;
+  }
+
+  /* ── Prompt Output ───────────────────────────── */
+  #prompt-area {
+    background: var(--ui-surface);
+    border-top: 1px solid var(--ui-border);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  #prompt-text {
+    flex: 1;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #ccc;
+    font-family: 'SF Mono', monospace;
+  }
+
+  #copy-btn {
+    padding: 7px 14px;
+    background: transparent;
+    border: 1px solid var(--ui-border);
+    border-radius: 6px;
+    color: var(--ui-text);
+    font-size: 11px;
+    font-family: 'SF Mono', monospace;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all .15s;
+    flex-shrink: 0;
+  }
+  #copy-btn:hover { background: #222; }
+  #copy-btn.copied { border-color: #22c55e; color: #22c55e; background: #0a1a0a; }
+
+  /* ── Component Previews ─────────────────────── */
+  .comp-asset-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    display: flex;
+    flex-direction: column;
+    width: 200px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: box-shadow .15s;
+  }
+  .comp-asset-card:hover {
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,.08), 0 2px 4px -2px rgba(0,0,0,.06);
+  }
+
+  .comp-thumb {
+    background: #f3f4f6;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #9ca3af;
+    overflow: hidden;
+  }
+
+  .comp-thumb-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .comp-card-body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .comp-card-name {
+    font-weight: 600;
+    color: #111827;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: 'Inter', 'Geist', -apple-system, sans-serif;
+  }
+
+  .comp-card-meta {
+    color: #9ca3af;
+    font-family: 'Inter', -apple-system, sans-serif;
+  }
+
+  .comp-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .comp-badge {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    font-weight: 500;
+    font-family: 'Inter', -apple-system, sans-serif;
+  }
+
+  .comp-modal {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    width: 100%;
+    max-width: 560px;
+    overflow: hidden;
+  }
+
+  .comp-modal-header {
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff;
+  }
+
+  .comp-modal-title {
+    font-weight: 600;
+    color: #111827;
+    font-family: 'Inter', -apple-system, sans-serif;
+  }
+
+  .comp-modal-body {
+    background: #f9fafb;
+  }
+
+  .comp-modal-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .comp-modal-row:last-child { border-bottom: none; }
+
+  .comp-modal-row-label {
+    color: #6b7280;
+    font-family: 'Inter', -apple-system, sans-serif;
+    min-width: 60px;
+  }
+
+  .comp-modal-row-value {
+    color: #111827;
+    font-family: 'Inter', -apple-system, sans-serif;
+  }
+
+  .comp-modal-footer {
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    background: #fff;
+  }
+
+  .comp-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity .15s;
+    font-family: 'Inter', -apple-system, sans-serif;
+    border: none;
+  }
+  .comp-btn:hover { opacity: 0.85; }
+
+  .comp-btn-default {
+    background: #18181b;
+    color: #fafafa;
+  }
+
+  .comp-btn-outline {
+    background: transparent;
+    color: #374151;
+    border: 1px solid #e5e7eb !important;
+  }
+
+  .comp-btn-ghost {
+    background: transparent;
+    color: #374151;
+  }
+  .comp-btn-ghost:hover { background: #f3f4f6; opacity: 1; }
+
+  .comp-input {
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    color: #111827;
+    outline: none;
+    font-family: 'Inter', -apple-system, sans-serif;
+    width: 100%;
+    transition: border-color .15s;
+  }
+  .comp-input:focus { border-color: #2563eb; }
+  .comp-input::placeholder { color: #9ca3af; }
+
+  /* color swatch row */
+  .swatch-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .swatch {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform .1s, border-color .1s;
+  }
+  .swatch:hover { transform: scale(1.15); }
+  .swatch.active { border-color: var(--ui-accent); transform: scale(1.1); }
+</style>
+</head>
+<body>
+
+<!-- ── Controls ───────────────────────────────────── -->
+<aside id="controls">
+  <div id="controls-header">
+    <span>Design Playground</span>
+    资产管理中心 · 组件预览
+  </div>
+
+  <!-- Presets -->
+  <div class="section">
+    <div class="section-title">预设方案</div>
+    <div class="presets-grid">
+      <button class="preset-btn active" data-preset="default" onclick="applyPreset('default')">
+        <span class="preset-name">默认</span>
+        <span class="preset-desc">原始设计令牌</span>
+      </button>
+      <button class="preset-btn" data-preset="rounded" onclick="applyPreset('rounded')">
+        <span class="preset-name">圆润</span>
+        <span class="preset-desc">大圆角 · 宽松</span>
+      </button>
+      <button class="preset-btn" data-preset="minimal" onclick="applyPreset('minimal')">
+        <span class="preset-name">极简</span>
+        <span class="preset-desc">直角 · 紧凑</span>
+      </button>
+      <button class="preset-btn" data-preset="blue" onclick="applyPreset('blue')">
+        <span class="preset-name">科技蓝</span>
+        <span class="preset-desc">蓝色主题</span>
+      </button>
+      <button class="preset-btn" data-preset="warm" onclick="applyPreset('warm')">
+        <span class="preset-name">暖棕</span>
+        <span class="preset-desc">大地色调</span>
+      </button>
+      <button class="preset-btn" data-preset="purple" onclick="applyPreset('purple')">
+        <span class="preset-name">紫墨</span>
+        <span class="preset-desc">紫色品牌</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Primary Color -->
+  <div class="section">
+    <div class="section-title">主题色</div>
+    <div class="control-row">
+      <div class="control-label">
+        <span>主色 Primary</span>
+        <span class="control-value" id="val-primary">#18181B</span>
+      </div>
+      <div class="swatch-row" id="primary-swatches">
+        <div class="swatch active" data-color="#18181B" style="background:#18181B" onclick="pickSwatch('primary', this)"></div>
+        <div class="swatch" data-color="#1d4ed8" style="background:#1d4ed8" onclick="pickSwatch('primary', this)"></div>
+        <div class="swatch" data-color="#7c3aed" style="background:#7c3aed" onclick="pickSwatch('primary', this)"></div>
+        <div class="swatch" data-color="#059669" style="background:#059669" onclick="pickSwatch('primary', this)"></div>
+        <div class="swatch" data-color="#d97706" style="background:#d97706" onclick="pickSwatch('primary', this)"></div>
+        <div class="swatch" data-color="#dc2626" style="background:#dc2626" onclick="pickSwatch('primary', this)"></div>
+        <div class="swatch" data-color="#78350f" style="background:#78350f" onclick="pickSwatch('primary', this)"></div>
+        <input type="color" id="color-primary" value="#18181B"
+          style="width:20px;height:20px;border-radius:4px;border:1px solid #444;padding:1px;cursor:pointer;background:transparent;"
+          oninput="onColorInput('primary', this.value)">
+      </div>
+    </div>
+    <div class="control-row">
+      <div class="control-label">
+        <span>高亮色 Ring / Link</span>
+        <span class="control-value" id="val-ring">#2563EB</span>
+      </div>
+      <div class="swatch-row" id="ring-swatches">
+        <div class="swatch active" data-color="#2563eb" style="background:#2563eb" onclick="pickSwatch('ring', this)"></div>
+        <div class="swatch" data-color="#7c3aed" style="background:#7c3aed" onclick="pickSwatch('ring', this)"></div>
+        <div class="swatch" data-color="#059669" style="background:#059669" onclick="pickSwatch('ring', this)"></div>
+        <div class="swatch" data-color="#d97706" style="background:#d97706" onclick="pickSwatch('ring', this)"></div>
+        <div class="swatch" data-color="#e11d48" style="background:#e11d48" onclick="pickSwatch('ring', this)"></div>
+        <input type="color" id="color-ring" value="#2563EB"
+          style="width:20px;height:20px;border-radius:4px;border:1px solid #444;padding:1px;cursor:pointer;background:transparent;"
+          oninput="onColorInput('ring', this.value)">
+      </div>
+    </div>
+  </div>
+
+  <!-- Border Radius -->
+  <div class="section">
+    <div class="section-title">圆角</div>
+    <div class="control-row">
+      <div class="control-label">
+        <span>基础圆角 r</span>
+        <span class="control-value" id="val-r">8px</span>
+      </div>
+      <input type="range" id="slider-r" min="0" max="20" step="1" value="8" oninput="onSlider('r', this.value)">
+    </div>
+    <div class="control-row">
+      <div class="control-label">
+        <span>大圆角 rLg（弹窗）</span>
+        <span class="control-value" id="val-rLg">12px</span>
+      </div>
+      <input type="range" id="slider-rLg" min="0" max="28" step="1" value="12" oninput="onSlider('rLg', this.value)">
+    </div>
+    <div class="control-row">
+      <div class="control-label">
+        <span>Checkbox 圆角</span>
+        <span class="control-value" id="val-rCb">3px</span>
+      </div>
+      <input type="range" id="slider-rCb" min="0" max="8" step="1" value="3" oninput="onSlider('rCb', this.value)">
+    </div>
+  </div>
+
+  <!-- Spacing -->
+  <div class="section">
+    <div class="section-title">间距</div>
+    <div class="control-row">
+      <div class="control-label">
+        <span>卡片内边距</span>
+        <span class="control-value" id="val-cardPad">10px</span>
+      </div>
+      <input type="range" id="slider-cardPad" min="4" max="24" step="2" value="10" oninput="onSlider('cardPad', this.value)">
+    </div>
+    <div class="control-row">
+      <div class="control-label">
+        <span>弹窗内边距</span>
+        <span class="control-value" id="val-modalPad">16px</span>
+      </div>
+      <input type="range" id="slider-modalPad" min="8" max="32" step="2" value="16" oninput="onSlider('modalPad', this.value)">
+    </div>
+    <div class="control-row">
+      <div class="control-label">
+        <span>按钮水平内边距</span>
+        <span class="control-value" id="val-btnPadX">16px</span>
+      </div>
+      <input type="range" id="slider-btnPadX" min="8" max="28" step="2" value="16" oninput="onSlider('btnPadX', this.value)">
+    </div>
+    <div class="control-row">
+      <div class="control-label">
+        <span>元素间隙 gap</span>
+        <span class="control-value" id="val-gap">8px</span>
+      </div>
+      <input type="range" id="slider-gap" min="2" max="20" step="2" value="8" oninput="onSlider('gap', this.value)">
+    </div>
+  </div>
+
+  <!-- Typography -->
+  <div class="section">
+    <div class="section-title">字体大小</div>
+    <div class="control-row">
+      <div class="control-label">
+        <span>正文 / 列表项</span>
+        <span class="control-value" id="val-fsBody">13px</span>
+      </div>
+      <input type="range" id="slider-fsBody" min="11" max="16" step="1" value="13" oninput="onSlider('fsBody', this.value)">
+    </div>
+    <div class="control-row">
+      <div class="control-label">
+        <span>卡片标题</span>
+        <span class="control-value" id="val-fsTitle">13px</span>
+      </div>
+      <input type="range" id="slider-fsTitle" min="11" max="18" step="1" value="13" oninput="onSlider('fsTitle', this.value)">
+    </div>
+    <div class="control-row">
+      <div class="control-label">
+        <span>徽章 / 元数据</span>
+        <span class="control-value" id="val-fsBadge">12px</span>
+      </div>
+      <input type="range" id="slider-fsBadge" min="10" max="14" step="1" value="12" oninput="onSlider('fsBadge', this.value)">
+    </div>
+    <div class="control-row">
+      <div class="control-label">
+        <span>弹窗标题</span>
+        <span class="control-value" id="val-fsModalTitle">15px</span>
+      </div>
+      <input type="range" id="slider-fsModalTitle" min="13" max="20" step="1" value="15" oninput="onSlider('fsModalTitle', this.value)">
+    </div>
+  </div>
+
+  <!-- Thumb size -->
+  <div class="section">
+    <div class="section-title">卡片缩略图</div>
+    <div class="control-row">
+      <div class="control-label">
+        <span>缩略图高度</span>
+        <span class="control-value" id="val-thumbH">120px</span>
+      </div>
+      <input type="range" id="slider-thumbH" min="60" max="200" step="4" value="120" oninput="onSlider('thumbH', this.value)">
+    </div>
+    <div class="control-row">
+      <div class="control-label">
+        <span>卡片宽度</span>
+        <span class="control-value" id="val-cardW">200px</span>
+      </div>
+      <input type="range" id="slider-cardW" min="140" max="300" step="4" value="200" oninput="onSlider('cardW', this.value)">
+    </div>
+  </div>
+
+</aside>
+
+<!-- ── Preview ──────────────────────────────────── -->
+<main id="preview">
+  <div class="preview-label">↓ 卡片组件 · AssetCard</div>
+  <div class="preview-row" id="preview-cards" style="justify-content: center; max-width: none;"></div>
+
+  <div class="preview-label" style="margin-top: 8px;">↓ 弹窗头部 + 内容 · Modal</div>
+  <div id="preview-modal" style="width: 100%; max-width: 560px;"></div>
+
+  <div class="preview-label" style="margin-top: 8px;">↓ 按钮 · Buttons</div>
+  <div id="preview-buttons" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;"></div>
+
+  <div class="preview-label" style="margin-top: 8px;">↓ 徽章 · Badges</div>
+  <div id="preview-badges" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;"></div>
+
+  <div class="preview-label" style="margin-top: 8px;">↓ 输入框 · Input</div>
+  <div id="preview-input" style="width: 100%; max-width: 340px;"></div>
+</main>
+
+<!-- ── Prompt Output ───────────────────────────── -->
+<div id="prompt-area">
+  <div id="prompt-text">正在加载...</div>
+  <button id="copy-btn" onclick="copyPrompt()">复制提示词</button>
+</div>
+
+<script>
+// ── State ────────────────────────────────────────
+const DEFAULTS = {
+  primary: '#18181b',
+  ring: '#2563eb',
+  r: 8,
+  rLg: 12,
+  rCb: 3,
+  cardPad: 10,
+  modalPad: 16,
+  btnPadX: 16,
+  gap: 8,
+  fsBody: 13,
+  fsTitle: 13,
+  fsBadge: 12,
+  fsModalTitle: 15,
+  thumbH: 120,
+  cardW: 200,
+};
+
+const state = { ...DEFAULTS };
+
+// ── Presets ──────────────────────────────────────
+const PRESETS = {
+  default: { ...DEFAULTS },
+  rounded: { ...DEFAULTS, r: 16, rLg: 24, rCb: 6, cardPad: 14, modalPad: 20, btnPadX: 20, gap: 10, fsBody: 13 },
+  minimal: { ...DEFAULTS, r: 2, rLg: 4, rCb: 1, cardPad: 8, modalPad: 12, btnPadX: 12, gap: 6, fsBody: 12, fsBadge: 11 },
+  blue: { ...DEFAULTS, primary: '#1d4ed8', ring: '#60a5fa', r: 8, fsBody: 13 },
+  warm: { ...DEFAULTS, primary: '#78350f', ring: '#d97706', r: 10, rLg: 14, cardPad: 12, fsBody: 13 },
+  purple: { ...DEFAULTS, primary: '#6d28d9', ring: '#8b5cf6', r: 12, rLg: 18, cardPad: 12, gap: 10 },
+};
+
+// ── Helpers ──────────────────────────────────────
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return `${r},${g},${b}`;
+}
+
+function lighten(hex, amount) {
+  // rough lighten for bg tints
+  const r = Math.min(255, parseInt(hex.slice(1,3),16) + amount);
+  const g = Math.min(255, parseInt(hex.slice(3,5),16) + amount);
+  const b = Math.min(255, parseInt(hex.slice(5,7),16) + amount);
+  return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+}
+
+function primaryFg(hex) {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  const lum = (0.299*r + 0.587*g + 0.114*b) / 255;
+  return lum > 0.5 ? '#18181b' : '#fafafa';
+}
+
+function ringBg(hex) {
+  // soft tint for focus/link bg
+  return hex + '18';
+}
+
+// ── Render ───────────────────────────────────────
+function renderAll() {
+  renderCards();
+  renderModal();
+  renderButtons();
+  renderBadges();
+  renderInput();
+  updatePrompt();
+}
+
+function renderCards() {
+  const s = state;
+  const fg = primaryFg(s.primary);
+  const rfull = 9999;
+
+  const sampleCards = [
+    { name: '森林场景_晨雾', type: '场景', tags: ['针叶林', '晨雾', '高海拔'], color: '#22c55e' },
+    { name: '铠甲骑士_A', type: '角色', tags: ['中世纪', '铠甲', '骑马'], color: '#3b82f6' },
+    { name: '魔法水晶球', type: '道具', tags: ['发光', '魔法', '透明'], color: '#8b5cf6' },
+  ];
+
+  const html = sampleCards.map(card => {
+    const tagHtml = card.tags.map(t => `
+      <span class="comp-badge" style="
+        font-size:${s.fsBadge}px;
+        padding: 2px ${s.gap}px;
+        border-radius: ${rfull}px;
+        background: #f3f4f6;
+        color: #374151;
+        border: 1px solid rgba(55,65,81,0.08);
+        gap: ${Math.max(2, s.gap - 4)}px;
+      ">${t}</span>
+    `).join('');
+
+    return `
+    <div class="comp-asset-card" style="
+      border-radius: ${s.r}px;
+      width: ${s.cardW}px;
+      transition: box-shadow .15s;
+    ">
+      <div class="comp-thumb" style="
+        height: ${s.thumbH}px;
+        border-top-left-radius: ${Math.max(0, s.r - 1)}px;
+        border-top-right-radius: ${Math.max(0, s.r - 1)}px;
+        background: linear-gradient(135deg, ${card.color}22, ${card.color}55);
+        position: relative;
+      ">
+        <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="${card.color}" stroke-width="1.2" opacity="0.7">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5a2.25 2.25 0 002.25-2.25V5.25a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 003.75 21z" />
+        </svg>
+        <span style="
+          position:absolute; top:8px; right:8px;
+          font-size: ${s.fsBadge}px;
+          padding: 2px 8px;
+          border-radius: ${rfull}px;
+          background: ${card.color};
+          color: #fff;
+          font-weight: 500;
+          font-family: 'Inter', sans-serif;
+        ">${card.type}</span>
+      </div>
+      <div class="comp-card-body" style="padding: ${s.cardPad}px; gap: ${s.gap}px; display: flex; flex-direction: column;">
+        <div class="comp-card-name" style="font-size: ${s.fsTitle}px;">${card.name}</div>
+        <div class="comp-card-meta" style="font-size: ${s.fsBadge}px;">2.3 MB · 2026-03-22</div>
+        <div class="comp-card-tags" style="gap: ${Math.max(3, s.gap - 2)}px;">${tagHtml}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('preview-cards').innerHTML = html;
+}
+
+function renderModal() {
+  const s = state;
+
+  document.getElementById('preview-modal').innerHTML = `
+    <div class="comp-modal" style="border-radius: ${s.rLg}px;">
+      <div class="comp-modal-header" style="padding: ${s.modalPad}px ${s.modalPad}px; gap: ${s.gap}px;">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#9ca3af" stroke-width="1.6">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z"/>
+        </svg>
+        <span class="comp-modal-title" style="font-size: ${s.fsModalTitle}px; flex: 1;">选择标签 | 当前分类: 场景</span>
+        <span style="font-size: 12px; color: #9ca3af;">已选 3 个</span>
+        <button class="comp-btn comp-btn-ghost" style="
+          padding: 6px;
+          border-radius: ${s.r}px;
+          font-size: ${s.fsBody}px;
+        ">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="comp-modal-body" style="padding: ${Math.round(s.modalPad * 0.75)}px ${s.modalPad}px;">
+        ${['晨雾', '针叶林', '高海拔'].map(tag => `
+          <div class="comp-modal-row" style="padding: ${Math.round(s.modalPad * 0.55)}px ${Math.round(s.modalPad * 0.25)}px; gap: ${s.gap}px;">
+            <div style="
+              width: 16px; height: 16px;
+              border-radius: ${s.rCb + 1}px;
+              background: ${state.primary};
+              display: flex; align-items: center; justify-content: center;
+              flex-shrink: 0;
+            ">
+              <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="${primaryFg(state.primary)}" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+              </svg>
+            </div>
+            <span style="font-size: ${s.fsBody}px; color: #111827; font-family: 'Inter', sans-serif; font-weight: 500;">${tag}</span>
+            <span style="font-size: 11px; color: #9ca3af; margin-left: auto; font-family: monospace;">气候 / 大气</span>
+          </div>
+        `).join('')}
+        <div class="comp-modal-row" style="padding: ${Math.round(s.modalPad * 0.55)}px ${Math.round(s.modalPad * 0.25)}px; gap: ${s.gap}px; opacity: 0.55;">
+          <div style="
+            width: 16px; height: 16px;
+            border-radius: ${s.rCb + 1}px;
+            border: 1.5px solid #d1d5db;
+            flex-shrink: 0;
+          "></div>
+          <span style="font-size: ${s.fsBody}px; color: #6b7280; font-family: 'Inter', sans-serif;">暴风雪</span>
+          <span style="font-size: 11px; color: #9ca3af; margin-left: auto; font-family: monospace;">气候 / 极端</span>
+        </div>
+      </div>
+      <div class="comp-modal-footer" style="padding: ${Math.round(s.modalPad * 0.8)}px ${s.modalPad}px; gap: ${s.gap}px;">
+        <button class="comp-btn comp-btn-ghost" style="
+          padding: 8px ${s.btnPadX}px;
+          border-radius: ${s.r}px;
+          font-size: ${s.fsBody}px;
+          color: #ef4444;
+          margin-right: auto;
+        ">清除全部</button>
+        <button class="comp-btn comp-btn-outline" style="
+          padding: 8px ${s.btnPadX}px;
+          border-radius: ${s.r}px;
+          font-size: ${s.fsBody}px;
+        ">取消</button>
+        <button class="comp-btn comp-btn-default" style="
+          padding: 8px ${s.btnPadX}px;
+          border-radius: ${s.r}px;
+          font-size: ${s.fsBody}px;
+          background: ${state.primary};
+          color: ${primaryFg(state.primary)};
+        ">确认 (3)</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderButtons() {
+  const s = state;
+  const fg = primaryFg(s.primary);
+  document.getElementById('preview-buttons').innerHTML = `
+    <button class="comp-btn comp-btn-default" style="
+      padding: 8px ${s.btnPadX}px;
+      border-radius: ${s.r}px;
+      font-size: ${s.fsBody}px;
+      gap: ${s.gap - 2}px;
+      background: ${s.primary};
+      color: ${fg};
+    ">
+      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+      </svg>
+      上传资产
+    </button>
+    <button class="comp-btn comp-btn-outline" style="
+      padding: 8px ${s.btnPadX}px;
+      border-radius: ${s.r}px;
+      font-size: ${s.fsBody}px;
+      gap: ${s.gap - 2}px;
+      border: 1px solid #e5e7eb !important;
+    ">
+      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z"/>
+      </svg>
+      选择标签
+    </button>
+    <button class="comp-btn comp-btn-ghost" style="
+      padding: 8px ${s.btnPadX}px;
+      border-radius: ${s.r}px;
+      font-size: ${s.fsBody}px;
+      gap: ${s.gap - 2}px;
+    ">
+      取消
+    </button>
+    <div style="
+      display: inline-flex;
+      border: 1px solid #e5e7eb;
+      border-radius: ${s.r}px;
+      overflow: hidden;
+    ">
+      <button class="comp-btn comp-btn-ghost" style="
+        padding: 7px 10px;
+        border-radius: 0;
+        font-size: ${s.fsBody}px;
+        border-right: 1px solid #e5e7eb;
+        background: ${s.primary}15;
+        color: ${s.primary};
+      ">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/>
+        </svg>
+      </button>
+      <button class="comp-btn comp-btn-ghost" style="
+        padding: 7px 10px;
+        border-radius: 0;
+        font-size: ${s.fsBody}px;
+      ">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 5.25h16.5m-16.5-10.5h16.5"/>
+        </svg>
+      </button>
+    </div>
+  `;
+}
+
+function renderBadges() {
+  const s = state;
+  const rfull = 9999;
+  const badges = [
+    { label: '场景', color: '#22c55e', bg: '#f0fdf4' },
+    { label: '角色', color: '#3b82f6', bg: '#eff6ff' },
+    { label: '道具', color: '#8b5cf6', bg: '#f5f3ff' },
+    { label: '晨雾', color: '#374151', bg: '#f3f4f6' },
+    { label: '针叶林', color: '#374151', bg: '#f3f4f6' },
+    { label: '2.3 MB', color: '#6b7280', bg: '#f9fafb' },
+  ];
+  document.getElementById('preview-badges').innerHTML = badges.map(b => `
+    <span class="comp-badge" style="
+      padding: 3px ${s.gap + 2}px;
+      border-radius: ${rfull}px;
+      font-size: ${s.fsBadge}px;
+      background: ${b.bg};
+      color: ${b.color};
+      border: 1px solid ${b.color}20;
+    ">${b.label}</span>
+  `).join('');
+}
+
+function renderInput() {
+  const s = state;
+  document.getElementById('preview-input').innerHTML = `
+    <div style="display: flex; flex-direction: column; gap: ${s.gap}px;">
+      <div style="display: flex; align-items: center; gap: 8px; padding: 7px 12px; border: 1px solid #e5e7eb; border-radius: ${s.r}px; background: #fff;">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#9ca3af" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/>
+          <path stroke-linecap="round" d="M21 21l-4.35-4.35"/>
+        </svg>
+        <input class="comp-input" placeholder="搜索资产名称..." style="
+          font-size: ${s.fsBody}px;
+          border: none !important;
+          padding: 0;
+          background: transparent;
+        ">
+      </div>
+      <input class="comp-input" placeholder="实体名称" style="
+        padding: 7px 10px;
+        border-radius: ${s.r}px;
+        font-size: ${s.fsBody}px;
+      ">
+    </div>
+  `;
+}
+
+// ── Controls ─────────────────────────────────────
+function onSlider(key, val) {
+  state[key] = parseInt(val);
+  document.getElementById(`val-${key}`).textContent = val + 'px';
+  setActivePreset(null);
+  renderAll();
+}
+
+function onColorInput(key, val) {
+  state[key] = val;
+  document.getElementById(`val-${key}`).textContent = val.toUpperCase();
+  // update active swatch highlight
+  document.querySelectorAll(`#${key}-swatches .swatch`).forEach(sw => {
+    sw.classList.toggle('active', sw.dataset.color?.toLowerCase() === val.toLowerCase());
+  });
+  setActivePreset(null);
+  renderAll();
+}
+
+function pickSwatch(key, el) {
+  const color = el.dataset.color;
+  state[key] = color;
+  document.getElementById(`val-${key}`).textContent = color.toUpperCase();
+  document.getElementById(`color-${key}`).value = color;
+  document.querySelectorAll(`#${key}-swatches .swatch`).forEach(sw => sw.classList.remove('active'));
+  el.classList.add('active');
+  setActivePreset(null);
+  renderAll();
+}
+
+function setActivePreset(name) {
+  document.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.preset === name);
+  });
+}
+
+function applyPreset(name) {
+  const p = PRESETS[name];
+  if (!p) return;
+  Object.assign(state, p);
+  // update all slider + color UI values
+  Object.entries(state).forEach(([key, val]) => {
+    const slider = document.getElementById(`slider-${key}`);
+    const valEl = document.getElementById(`val-${key}`);
+    const colorEl = document.getElementById(`color-${key}`);
+    if (slider) { slider.value = val; }
+    if (valEl) { valEl.textContent = typeof val === 'number' ? val + 'px' : val.toUpperCase(); }
+    if (colorEl) { colorEl.value = val; }
+  });
+  // update swatches
+  ['primary', 'ring'].forEach(key => {
+    const val = state[key];
+    document.querySelectorAll(`#${key}-swatches .swatch`).forEach(sw => {
+      sw.classList.toggle('active', sw.dataset.color?.toLowerCase() === val.toLowerCase());
+    });
+  });
+  setActivePreset(name);
+  renderAll();
+}
+
+// ── Prompt ───────────────────────────────────────
+function updatePrompt() {
+  const D = DEFAULTS;
+  const s = state;
+  const parts = [];
+
+  // primary
+  if (s.primary.toLowerCase() !== D.primary.toLowerCase()) {
+    parts.push(`主题色改为 \`${s.primary.toUpperCase()}\``);
+  }
+  if (s.ring.toLowerCase() !== D.ring.toLowerCase()) {
+    parts.push(`高亮/链接色改为 \`${s.ring.toUpperCase()}\``);
+  }
+
+  // radius
+  if (s.r !== D.r) {
+    const desc = s.r === 0 ? '直角（0px）' : s.r <= 4 ? `小圆角（${s.r}px）` : s.r >= 16 ? `大圆角（${s.r}px）` : `圆角 ${s.r}px`;
+    parts.push(`基础圆角改为${desc}`);
+  }
+  if (s.rLg !== D.rLg) {
+    parts.push(`弹窗大圆角改为 ${s.rLg}px`);
+  }
+
+  // spacing
+  const spacingChanges = [];
+  if (s.cardPad !== D.cardPad) spacingChanges.push(`卡片内边距 ${s.cardPad}px`);
+  if (s.modalPad !== D.modalPad) spacingChanges.push(`弹窗内边距 ${s.modalPad}px`);
+  if (s.btnPadX !== D.btnPadX) spacingChanges.push(`按钮水平内边距 ${s.btnPadX}px`);
+  if (s.gap !== D.gap) spacingChanges.push(`元素间距 ${s.gap}px`);
+  if (spacingChanges.length) parts.push(`间距调整：${spacingChanges.join('、')}`);
+
+  // typography
+  const typoChanges = [];
+  if (s.fsBody !== D.fsBody) typoChanges.push(`正文 ${s.fsBody}px`);
+  if (s.fsTitle !== D.fsTitle) typoChanges.push(`卡片标题 ${s.fsTitle}px`);
+  if (s.fsBadge !== D.fsBadge) typoChanges.push(`徽章 ${s.fsBadge}px`);
+  if (s.fsModalTitle !== D.fsModalTitle) typoChanges.push(`弹窗标题 ${s.fsModalTitle}px`);
+  if (typoChanges.length) parts.push(`字体大小调整：${typoChanges.join('、')}`);
+
+  // card size
+  if (s.thumbH !== D.thumbH) parts.push(`缩略图高度改为 ${s.thumbH}px`);
+  if (s.cardW !== D.cardW) parts.push(`卡片宽度改为 ${s.cardW}px`);
+
+  const promptEl = document.getElementById('prompt-text');
+  if (parts.length === 0) {
+    promptEl.textContent = '当前使用默认设计令牌，未做任何修改。调整左侧控件后，这里会自动生成可直接粘贴给 Claude 的提示词。';
+  } else {
+    promptEl.textContent = `请将资产管理中心的设计令牌更新为：${parts.join('；')}。将这些变更应用到 js/theme.js 的 V 对象以及对应的内联样式中。`;
+  }
+}
+
+function copyPrompt() {
+  const text = document.getElementById('prompt-text').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = '✓ 已复制';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '复制提示词'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+// ── Init ─────────────────────────────────────────
+renderAll();
+</script>
+</body>
+</html>
