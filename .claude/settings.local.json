@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(bash 构建.command)"
-    ]
-  }
-}

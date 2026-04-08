@@ -4,7 +4,7 @@ description: 项目开始时必须执行：读取 CLAUDE.md 了解项目规范
 
 # 项目初始化规范读取
 
-每当开始在本项目（assetproject）工作前，**必须先读取项目根目录的 `CLAUDE.md`** 文件，以了解：
+每当开始在本项目工作前，**必须先读取项目根目录的 `CLAUDE.md`** 文件，以了解：
 
 1. 项目整体架构与技术栈
 2. 数据流说明与模块职责
@@ -15,7 +15,7 @@ description: 项目开始时必须执行：读取 CLAUDE.md 了解项目规范
 
 ## 步骤
 
-1. 读取 `CLAUDE.md` 文件（路径：`/Users/silverry/Library/Mobile Documents/com~apple~CloudDocs/资产库/assetproject/CLAUDE.md`）
+1. 读取项目根目录下的 `CLAUDE.md` 文件
 2. 理解并遵守其中所有规范，再执行任何代码修改
 
 ## 每次 session 结束的收尾动作（来自 CLAUDE.md §7-8）
@@ -26,7 +26,6 @@ description: 项目开始时必须执行：读取 CLAUDE.md 了解项目规范
 3. 输出改动文件清单
 4. **执行 Git 提交**：
 ```bash
-cd '/Users/silverry/Library/Mobile Documents/com~apple~CloudDocs/资产库/assetproject'
 git add -A
 git commit -m "<feat|fix|style|refactor|docs|chore>: <改动摘要>"
 ```

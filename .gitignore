@@ -9,6 +9,12 @@
 .idea/
 *.swp
 *.swo
+.cursorrules
+
+# 本地 AI / 自动化工具状态
+.claude/
+.playwright-mcp/
+.roo/
 
 # 日志
 *.log

@@ -410,13 +410,13 @@ const btnStyle = (v = "default") => ({
 });
 
 /** 判断文件类型 */
-const ft = f => f.type.startsWith("image/") ? "image" : f.type.startsWith("video/") ? "video" : "other";
+const ft = f => (f?.type ?? "").startsWith("image/") ? "image" : (f?.type ?? "").startsWith("video/") ? "video" : "other";
 
 /** 接受的 MIME 类型 */
 const ACCEPT = ["image/jpeg", "image/png", "image/gif", "image/webp", "video/mp4", "video/quicktime", "video/webm"];
 
 /** 校验文件是否为支持的媒体类型 */
-const isValid = f => ACCEPT.some(a => f.type.startsWith(a.split("/")[0] + "/"));
+const isValid = f => f?.type ? ACCEPT.some(a => f.type.startsWith(a.split("/")[0] + "/")) : false;
 
 /** 生成随机短 ID */
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -449,7 +449,7 @@ function readEntries(entry) {
       readNext();
     });
   }
-  return [];
+  return Promise.resolve([]);
 }
 // ═══════════════════════════════════════════════════════════
 //  components.js — 可复用 UI 原子/分子组件
@@ -658,7 +658,7 @@ function TagModal({ selected, catId, onConfirm, onClose }) {
     const dim = filteredDims.find(x => x.id === gid);
     if (!dim) return 0;
     let c = 0;
-    dim.groups.forEach(g => g.tagObjs.forEach(t => { if (sel.has(t.id)) c++; }));
+    dim.groups.forEach(g => (g.tagObjs ?? []).forEach(t => { if (sel.has(t.id)) c++; }));
     return c;
   };
 
@@ -746,19 +746,19 @@ function TagModal({ selected, catId, onConfirm, onClose }) {
             ) : activeDim ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 {activeDim.groups.map(sg => {
-                  const sgCnt = sg.tagObjs.filter(t => sel.has(t.id)).length;
+                  const sgCnt = (sg.tagObjs ?? []).filter(t => sel.has(t.id)).length;
                   return (
                     <div key={sg.id} style={{ border: `1px solid ${V.border}`, borderRadius: V.r }}>
                       <div style={{ padding: "8px 12px", borderBottom: `1px solid ${V.border}`, background: V.muted, display: "flex", alignItems: "center", gap: 8, borderTopLeftRadius: V.r, borderTopRightRadius: V.r }}>
                         <span style={{ fontSize: 13, fontWeight: 600 }}>{sg.name}</span>
-                        <span style={{ fontSize: 11, color: V.fgMuted }}>{sgCnt}/{sg.tagObjs.length}</span>
+                        <span style={{ fontSize: 11, color: V.fgMuted }}>{sgCnt}/{(sg.tagObjs ?? []).length}</span>
                         <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
                           <button onClick={() => { const ns = new Set(sel); sg.tagObjs.forEach(t => ns.add(t.id)); setSel(ns); }} style={{ ...btnStyle("ghost"), fontSize: 11, padding: "2px 6px", color: V.blue }}>全选</button>
                           <button onClick={() => { const ns = new Set(sel); sg.tagObjs.forEach(t => ns.delete(t.id)); setSel(ns); }} style={{ ...btnStyle("ghost"), fontSize: 11, padding: "2px 6px", color: V.fgMuted }}>清空</button>
                         </div>
                       </div>
                       <div style={{ padding: "10px", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
-                        {sg.tagObjs.map(t => {
+                        {(sg.tagObjs ?? []).map(t => {
                           const s = sel.has(t.id); return (
                             <div key={t.id} onClick={() => toggle(t.id)} className="hover-tag" style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", fontSize: 13, color: V.fg }}>
                               <ModalCBox on={s} onClick={() => { }} size={16} />
@@ -821,8 +821,8 @@ function TagSidebar({ activeCat, selectedTags, onToggle, onClear, onHide }) {
   });
   const [q, setQ] = useState("");
   const ql = q.toLowerCase();
-  const dimCnt = dim => { let c = 0; dim.groups.forEach(g => g.tagObjs.forEach(t => { if (selectedTags.has(t.id)) c++; })); return c; };
-  const grpCnt = g => g.tagObjs.filter(t => selectedTags.has(t.id)).length;
+  const dimCnt = dim => { let c = 0; (dim.groups ?? []).forEach(g => (g.tagObjs ?? []).forEach(t => { if (selectedTags.has(t.id)) c++; })); return c; };
+  const grpCnt = g => (g.tagObjs ?? []).filter(t => selectedTags.has(t.id)).length;
   const filteredDims = useMemo(() => activeCat ? TAG_DIMS.filter(d => d.catId === activeCat) : TAG_DIMS, [activeCat]);
 
   return (
@@ -849,7 +849,7 @@ function TagSidebar({ activeCat, selectedTags, onToggle, onClear, onHide }) {
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: "4px 0" }}>
         {filteredDims.map(dim => {
-          const fGroups = ql ? dim.groups.map(g => ({ ...g, tagObjs: g.tagObjs.filter(t => t.name.toLowerCase().includes(ql) || g.name.toLowerCase().includes(ql) || dim.name.toLowerCase().includes(ql)) })).filter(g => g.tagObjs.length > 0) : dim.groups;
+          const fGroups = ql ? dim.groups.map(g => ({ ...g, tagObjs: (g.tagObjs ?? []).filter(t => t.name.toLowerCase().includes(ql) || g.name.toLowerCase().includes(ql) || dim.name.toLowerCase().includes(ql)) })).filter(g => (g.tagObjs ?? []).length > 0) : dim.groups;
           if (ql && fGroups.length === 0) return null;
           const isDC = cDims[dim.id] && !ql; const dc = dimCnt(dim);
           return <div key={dim.id}>
@@ -864,10 +864,10 @@ function TagSidebar({ activeCat, selectedTags, onToggle, onClear, onHide }) {
                 <div onClick={() => setCGrps(p => ({ ...p, [g.id]: !p[g.id] }))} className="hover-group" style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 14px 6px 26px", cursor: "pointer" }}>
                   <span style={{ transform: isGC ? "rotate(-90deg)" : "none", transition: "transform .12s", color: V.fgMuted, flexShrink: 0 }}>{I.ChevD(9)}</span>
                   <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: V.fgSoft }}>{g.name}</span>
-                  <span style={{ fontSize: 10, color: V.fgMuted, fontFamily: mono, flexShrink: 0 }}>{g.tagObjs.length}</span>
+                  <span style={{ fontSize: 10, color: V.fgMuted, fontFamily: mono, flexShrink: 0 }}>{(g.tagObjs ?? []).length}</span>
                   {gc > 0 && <span style={{ fontSize: 8, fontWeight: 600, padding: "0 4px", borderRadius: V.rFull, background: V.blue, color: "#fff", lineHeight: "14px", minWidth: 14, textAlign: "center", flexShrink: 0 }}>{gc}</span>}
                 </div>
-                {!isGC && <div style={{ padding: "0 14px 2px 40px" }}>{g.tagObjs.map(t => {
+                {!isGC && <div style={{ padding: "0 14px 2px 40px" }}>{(g.tagObjs ?? []).map(t => {
                   const on = selectedTags.has(t.id);
                   return <div key={t.id} onClick={() => onToggle(t.id)} className="hover-tag" style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 6px", cursor: "pointer", borderRadius: 4, fontSize: 12, color: on ? V.fg : V.fgSoft, fontWeight: on ? 500 : 400 }}>
                     <CBox on={on} onClick={() => { }} size={14} /><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</span>
@@ -913,7 +913,7 @@ function DetailPanel({ asset, onClose, onUpdate, onDelete }) {
     if (mediaUrl) {
       const a = document.createElement('a');
       a.href = mediaUrl;
-      a.download = asset.file.name || asset.name;
+      a.download = asset.file?.name || asset.name;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -966,7 +966,7 @@ function DetailPanel({ asset, onClose, onUpdate, onDelete }) {
             <span style={{ fontSize: 12, fontWeight: 500, color: V.fgMuted }}>标签</span>
             <button onClick={() => setTagOpen(true)} style={{ ...btnStyle("ghost"), padding: "2px 6px", fontSize: 12, color: V.blue, background: "transparent" }}>编辑标签</button>
           </div>
-          {asset.tags.length > 0 ? <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{asset.tags.map(tid => { const t = tagById(tid); return t ? <Badge key={tid} onRemove={() => onUpdate({ ...asset, tags: asset.tags.filter(x => x !== tid) })}>{t.dName} · {t.name}</Badge> : null; })}</div> : <span style={{ fontSize: 13, color: V.fgMuted }}>无标签</span>}
+          {(asset.tags ?? []).length > 0 ? <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{(asset.tags ?? []).map(tid => { const t = tagById(tid); return t ? <Badge key={tid} onRemove={() => onUpdate({ ...asset, tags: (asset.tags ?? []).filter(x => x !== tid) })}>{t.dName} · {t.name}</Badge> : null; })}</div> : <span style={{ fontSize: 13, color: V.fgMuted }}>无标签</span>}
         </div>
         {ent && <div><div style={{ fontSize: 12, fontWeight: 500, color: V.fgMuted, marginBottom: 6 }}>关联实体</div><span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: V.rFull, fontSize: 13, fontWeight: 500, background: V.purpleBg, color: V.purple }}>{I.Cube(12)} {ent.name}</span></div>}
       </div>
@@ -1048,7 +1048,7 @@ function AssetCard({ asset, entities, onUpdate, onRemove, onNewEntity }) {
         <div>
           <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, fontWeight: 500, color: V.fg, marginBottom: 6 }}>
             {I.Tag(13)} 标签
-            {asset.tags.length > 0 && <span style={{ fontSize: 11, color: V.fgMuted, fontWeight: 400, fontFamily: mono }}>{asset.tags.length}</span>}
+            {(asset.tags ?? []).length > 0 && <span style={{ fontSize: 11, color: V.fgMuted, fontWeight: 400, fontFamily: mono }}>{(asset.tags ?? []).length}</span>}
           </label>
           <div onClick={() => setTagOpen(true)} style={{
             display: "flex", flexWrap: "wrap", gap: 5, alignItems: "center",
@@ -1058,9 +1058,9 @@ function AssetCard({ asset, entities, onUpdate, onRemove, onNewEntity }) {
             onMouseEnter={e => e.currentTarget.style.borderColor = "#D1D5DB"}
             onMouseLeave={e => e.currentTarget.style.borderColor = V.border}
           >
-            {asset.tags.length === 0
+            {(asset.tags ?? []).length === 0
               ? <span style={{ color: V.fgMuted, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>{I.Plus(12)} 点击选择标签</span>
-              : asset.tags.map(tid => { const tg = tagById(tid); return tg ? <Badge key={tid} color={V.fg} bg={V.secondary} onRemove={() => onUpdate({ ...asset, tags: asset.tags.filter(x => x !== tid) })}>{tg.name}</Badge> : null; })}
+              : (asset.tags ?? []).map(tid => { const tg = tagById(tid); return tg ? <Badge key={tid} color={V.fg} bg={V.secondary} onRemove={() => onUpdate({ ...asset, tags: (asset.tags ?? []).filter(x => x !== tid) })}>{tg.name}</Badge> : null; })}
           </div>
         </div>
       </div>
@@ -1127,7 +1127,7 @@ function BatchBar({ onApplyCat, onApplyTags }) {
           <div onClick={() => setTagOpen(true)} style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center", padding: "7px 12px", minHeight: 38, border: `1px solid ${V.border}`, borderRadius: V.r, cursor: "pointer", background: V.bg }}>
             {bTags.length === 0
               ? <span style={{ color: V.fgMuted, fontSize: 13 }}>{I.Plus(12)} 选择标签...</span>
-              : bTags.map(tid => { const tg = tagById(tid); return tg ? <Badge key={tid} color={V.fg} bg={V.secondary} onRemove={() => setBTags(p => p.filter(x => x !== tid))}>{tg.name}</Badge> : null; })}
+              : (bTags ?? []).map(tid => { const tg = tagById(tid); return tg ? <Badge key={tid} color={V.fg} bg={V.secondary} onRemove={() => setBTags(p => p.filter(x => x !== tid))}>{tg.name}</Badge> : null; })}
           </div>
         </div>
         {bTags.length > 0 && <button onClick={() => { onApplyTags(bTags); setBTags([]); }} style={{ ...btnStyle("default"), fontSize: 12, padding: "8px 14px" }}>应用标签</button>}
@@ -1262,7 +1262,7 @@ function UploadApp({ onUpload, onClose }) {
                 for (const a of assets) {
                   const catId = a.catId || "scene"; // 未选类别时默认归入"场景"
                   const reqDims = TAG_DIMS.filter(d => d.catId === catId && d.isRequired);
-                  const missingDims = reqDims.filter(dim => !a.tags.some(tid => tagById(tid)?.dId === dim.id));
+                  const missingDims = reqDims.filter(dim => !(a.tags ?? []).some(tid => tagById(tid)?.dId === dim.id));
                   if (missingDims.length > 0) {
                     errorMsgs.push(`"${a.file.name}" 缺少必选标签: ${missingDims.map(d => d.name).join('、')}`);
                   }
@@ -1323,17 +1323,16 @@ function UploadModal({ onClose, onUpload }) {
 //  职责：SettingsModal（类别管理 + 标签维度树管理）
 //  依赖：data.js（CATEGORIES, TAG_DIMS, rebuildTags）、theme.js（V, I, btnStyle）
 //  被依赖：app.js（App 通过 showSettings 控制显隐）
-//  副作用：save() 直接修改全局 CATEGORIES/TAG_DIMS，并通过
-//          window.dispatchEvent('app_data_updated') 通知 App 刷新
+//  副作用：save() 直接修改全局 CATEGORIES/TAG_DIMS，然后调用 onSave() 通知 App 刷新
 // ═══════════════════════════════════════════════════════════
 
 // ── SettingsModal (系统设置弹窗) ─────────────────────────
 /**
  * 系统设置弹窗，包含类别管理和标签维度树管理两个 Tab
  * @param {function} onClose - 关闭弹窗回调
- * 副作用：save() 直接覆写全局 CATEGORIES/TAG_DIMS 并触发 'app_data_updated' 事件
+ * @param {function} onSave - 保存后通知父组件刷新的回调
  */
-function SettingsModal({ onClose }) {
+function SettingsModal({ onClose, onSave }) {
   const [tab, setTab] = useState("cat");
   const [cats, setCats] = useState(() => JSON.parse(JSON.stringify(CATEGORIES)));
   const [dims, setDims] = useState(() => JSON.parse(JSON.stringify(TAG_DIMS)));
@@ -1344,7 +1343,7 @@ function SettingsModal({ onClose }) {
     CATEGORIES = cats;
     TAG_DIMS = dims;
     rebuildTags(TAG_DIMS);
-    window.dispatchEvent(new Event('app_data_updated'));
+    onSave();
     onClose();
   };
 
@@ -1522,24 +1521,16 @@ function App() {
   const [search, setSearch] = useState("");                      // 写: 顶栏搜索框 | 读: filtered
   const [activeCat, setActiveCat] = useState(null);              // 写: 类别Tab点击 | 读: filtered, TagSidebar
   const [selectedTags, setSelectedTags] = useState(new Set());   // 写: toggleTag, 清除按钮 | 读: filtered, TagSidebar, 筛选栏
-  const [viewMode, setViewMode] = useState("grid");              // 写: 视图切换按钮 | 读: 列表/网格渲染分支
+  const [layoutMode, setLayoutMode] = useState("compact");       // 写: 布局切换按钮 | 读: 网格列数 ("compact"=多列, "wide"=3列)
   const [selected, setSelected] = useState(null);                // 写: 卡片点击, DetailPanel.onClose/onDelete | 读: selAsset, 卡片高亮
-  const [sortBy, setSortBy] = useState("date");                  // 写: 排序下拉 | 读: filtered
   const [showSidebar, setShowSidebar] = useState(true);          // 写: 筛选按钮, TagSidebar.onHide | 读: 侧栏显隐
   const [showUpload, setShowUpload] = useState(false);           // 写: 上传按钮, UploadModal.onClose | 读: UploadModal 显隐
   const [showSettings, setShowSettings] = useState(false);       // 写: 设置按钮, SettingsModal.onClose | 读: SettingsModal 显隐
-  // [UNCERTAIN] updateKey 值未被直接读取，仅通过 setUpdateKey 触发 re-render 以响应全局数据变更
-  const [updateKey, setUpdateKey] = useState(0);
+  const [updateKey, setUpdateKey] = useState(0);                  // 写: SettingsModal.onSave | 触发 re-render 以响应全局数据变更
   const [page, setPage] = useState(1);                           // 写: 翻页按钮, 筛选条件变更时重置 | 读: visibleAssets 分页
   const [pageSize, setPageSize] = useState(50);                  // 写: 每页条数下拉 | 读: visibleAssets 分页
 
   const toggleTag = useCallback(id => { setSelectedTags(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; }); }, []);
-
-  useEffect(() => {
-    const handler = () => setUpdateKey(k => k + 1);
-    window.addEventListener('app_data_updated', handler);
-    return () => window.removeEventListener('app_data_updated', handler);
-  }, []);
 
   // 筛选+排序管线：类别 → 搜索 → 标签（维度间 AND，维度内 OR）→ 排序
   const filtered = useMemo(() => {
@@ -1555,18 +1546,15 @@ function App() {
       });
       list = list.filter(a => {
         for (const dId in tagsByDim) {
-          if (!tagsByDim[dId].some(tid => a.tags.includes(tid))) return false;
+          if (!tagsByDim[dId].some(tid => (a.tags ?? []).includes(tid))) return false;
         }
         return true;
       });
     }
-    if (sortBy === "date") list = [...list].sort((a, b) => b.date.localeCompare(a.date));
-    else if (sortBy === "name") list = [...list].sort((a, b) => a.name.localeCompare(b.name));
-    else if (sortBy === "size") list = [...list].sort((a, b) => b.size - a.size);
-    return list;
-  }, [assets, activeCat, search, selectedTags, sortBy]);
+    return [...list].sort((a, b) => b.date.localeCompare(a.date));
+  }, [assets, activeCat, search, selectedTags]);
 
-  useEffect(() => { setPage(1); }, [activeCat, search, selectedTags, sortBy]);
+  useEffect(() => { setPage(1); }, [activeCat, search, selectedTags]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.max(1, Math.min(page, totalPages));
@@ -1607,7 +1595,7 @@ function App() {
       {selectedTags.size > 0 && (
         <div style={{ background: V.bg, borderBottom: `1px solid ${V.border}`, padding: "8px 24px", display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
           <span style={{ fontSize: 12, color: V.fgMuted, marginRight: 4 }}>筛选中:</span>
-          {Array.from(selectedTags).map(tid => { const t = tagById(tid); return t ? <Badge key={tid} onRemove={() => toggleTag(tid)}>{t.name}</Badge> : null; })}
+          {Array.from(selectedTags ?? []).map(tid => { const t = tagById(tid); return t ? <Badge key={tid} onRemove={() => toggleTag(tid)}>{t.name}</Badge> : null; })}
           <button onClick={() => setSelectedTags(new Set())} style={{ background: "none", border: "none", fontSize: 12, color: V.destructive, cursor: "pointer", fontFamily: font, marginLeft: 8 }}>清除全部</button>
         </div>
       )}
@@ -1618,11 +1606,8 @@ function App() {
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 20px 0", flexShrink: 0 }}>
             <button onClick={() => setShowSidebar(!showSidebar)} style={{ display: "flex", alignItems: "center", gap: 6, height: 30, padding: "0 10px", border: `1px solid ${showSidebar ? V.primary : V.border}`, borderRadius: V.r, background: showSidebar ? V.primary : V.bg, color: showSidebar ? V.primaryFg : V.fgSoft, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: font, boxSizing: "border-box" }}>{I.Filter(13)} 筛选{selectedTags.size > 0 ? ` (${selectedTags.size})` : ""}</button>
-            <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{ padding: "0 10px", height: 30, border: `1px solid ${V.border}`, borderRadius: V.r, fontSize: 12, fontFamily: font, color: V.fgSoft, background: V.bg, outline: "none", cursor: "pointer", fontWeight: 500 }}>
-              <option value="date">按日期</option><option value="name">按名称</option><option value="size">按大小</option>
-            </select>
             <div style={{ display: "flex", border: `1px solid ${V.border}`, borderRadius: V.r, overflow: "hidden", height: 30, boxSizing: "border-box" }}>
-              {[["grid", I.Grid], ["list", I.List]].map(([m, icon]) => <button key={m} onClick={() => setViewMode(m)} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: "100%", border: "none", cursor: "pointer", background: viewMode === m ? V.primary : V.bg, color: viewMode === m ? V.primaryFg : V.fgMuted }}>{icon(14)}</button>)}
+              {[["compact", I.Grid, "多列"], ["wide", null, "3列"]].map(([m, icon, label]) => <button key={m} onClick={() => setLayoutMode(m)} title={label} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4, padding: "0 10px", height: "100%", border: "none", cursor: "pointer", fontSize: 12, fontFamily: font, background: layoutMode === m ? V.primary : V.bg, color: layoutMode === m ? V.primaryFg : V.fgMuted }}>{icon ? icon(14) : <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" d="M3 5h18M3 12h18M3 19h18M8 5v14M16 5v14" /></svg>}{label}</button>)}
             </div>
             <div style={{ fontSize: 12, color: V.fgMuted, fontFamily: font, marginLeft: 6 }}>
               共 <span style={{ fontWeight: 600, color: V.fgSoft, fontFamily: mono }}>{filtered.length}</span> 条 &nbsp; 第 <span style={{ fontWeight: 600, color: V.fgSoft, fontFamily: mono }}>{currentPage}</span> / {totalPages} 页
@@ -1636,51 +1621,27 @@ function App() {
                 <div style={{ fontSize: 15, fontWeight: 500 }}>没有找到匹配的资产</div>
                 <div style={{ fontSize: 13, marginTop: 4 }}>尝试调整搜索关键词或筛选条件</div>
               </div>
-            ) : viewMode === "grid" ? (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 14 }}>
-                {visibleAssets.map(a => {
-                  const isSel = selected === a.id; const cat = CATEGORIES.find(c => c.id === a.catId);
-                  return <div key={a.id} onClick={() => setSelected(isSel ? null : a.id)} className={`app-grid-card ${isSel ? 'sel' : ''}`} style={{ borderRadius: V.rLg, overflow: "hidden", cursor: "pointer", border: `2px solid ${isSel ? V.ring : V.border}`, background: V.bg, boxShadow: isSel ? `0 0 0 2px ${V.ring}33` : V.sh, transition: "all .15s" }}>
-                    <div style={{ aspectRatio: "4/3", background: a.color, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
-                      {a.type === "video" && <div style={{ width: 36, height: 36, borderRadius: V.rFull, background: "rgba(0,0,0,.4)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>{I.Play(18)}</div>}
-                      {a.type === "image" && <span style={{ color: "rgba(0,0,0,.1)", fontSize: 32 }}>{I.Img(32)}</span>}
-                      {cat && <span style={{ position: "absolute", top: 6, left: 6, padding: "1px 6px", borderRadius: V.rFull, fontSize: 10, background: "rgba(255,255,255,.85)", color: V.fgSoft, fontWeight: 500 }}>{cat.icon} {cat.name}</span>}
-                    </div>
-                    <div style={{ padding: "10px 12px" }}>
-                      <div style={{ fontSize: 13, fontWeight: 500, color: V.fg, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 4 }}>{a.name}</div>
-                      <div style={{ display: "flex", gap: 8, fontSize: 11, color: V.fgMuted, fontFamily: mono }}><span>{fmtSz(a.size)}</span><span>{a.date}</span></div>
-                      {a.tags.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 6 }}>
-                        {a.tags.slice(0, 3).map(tid => { const t = tagById(tid); return t ? <span key={tid} style={{ fontSize: 10, padding: "1px 5px", borderRadius: V.rFull, background: V.secondary, color: V.fgSoft }}>{t.name}</span> : null; })}
-                        {a.tags.length > 3 && <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: V.rFull, background: V.secondary, color: V.fgMuted }}>+{a.tags.length - 3}</span>}
-                      </div>}
-                    </div>
-                  </div>;
-                })}
-              </div>
-            ) : (
-              <div style={{ border: `1px solid ${V.border}`, borderRadius: V.rLg, overflow: "hidden", background: V.bg }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 140px 100px", gap: 12, padding: "8px 16px", background: V.muted, borderBottom: `1px solid ${V.border}`, fontSize: 12, fontWeight: 600, color: V.fgMuted }}>
-                  <span>名称</span><span>类别</span><span>标签</span><span style={{ textAlign: "right" }}>大小</span>
-                </div>
-                {visibleAssets.map((a, i) => {
-                  const isSel = selected === a.id; const cat = CATEGORIES.find(c => c.id === a.catId);
-                  return <div key={a.id} onClick={() => setSelected(isSel ? null : a.id)} className={`app-list-card ${isSel ? 'sel' : ''}`} style={{ display: "grid", gridTemplateColumns: "1fr 80px 140px 100px", gap: 12, padding: "10px 16px", cursor: "pointer", background: isSel ? V.blueBg : i % 2 === 0 ? "transparent" : V.muted, borderBottom: `1px solid ${V.border}`, transition: "background .1s" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden" }}>
-                      <div style={{ width: 32, height: 32, borderRadius: 6, background: a.color, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        {a.type === "video" ? <span style={{ color: "rgba(0,0,0,.25)" }}>{I.Vid(14)}</span> : <span style={{ color: "rgba(0,0,0,.15)" }}>{I.Img(14)}</span>}
+            ) : (() => {
+              const cardRatio = activeCat === "scene" ? "16/9" : activeCat === "character" ? "9/16" : "1/1";
+              const cols = layoutMode === "wide" ? "repeat(3, 1fr)" : "repeat(auto-fill, minmax(180px, 1fr))";
+              return (
+                <div style={{ display: "grid", gridTemplateColumns: cols, gap: 14 }}>
+                  {visibleAssets.map(a => {
+                    const isSel = selected === a.id; const cat = CATEGORIES.find(c => c.id === a.catId);
+                    return <div key={a.id} onClick={() => setSelected(isSel ? null : a.id)} className={`app-grid-card ${isSel ? 'sel' : ''}`} style={{ borderRadius: V.rLg, overflow: "hidden", cursor: "pointer", border: `2px solid ${isSel ? V.ring : V.border}`, background: V.bg, boxShadow: isSel ? `0 0 0 2px ${V.ring}33` : V.sh, transition: "all .15s" }}>
+                      <div style={{ aspectRatio: cardRatio, background: a.color, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
+                        {a.type === "video" && <div style={{ width: 36, height: 36, borderRadius: V.rFull, background: "rgba(0,0,0,.4)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>{I.Play(18)}</div>}
+                        {a.type === "image" && <span style={{ color: "rgba(0,0,0,.1)", fontSize: 32 }}>{I.Img(32)}</span>}
+                        {cat && <span style={{ position: "absolute", top: 6, left: 6, padding: "1px 6px", borderRadius: V.rFull, fontSize: 10, background: "rgba(255,255,255,.85)", color: V.fgSoft, fontWeight: 500 }}>{cat.icon} {cat.name}</span>}
                       </div>
-                      <span style={{ fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center" }}>{cat ? <span style={{ fontSize: 12, color: V.fgSoft }}>{cat.icon} {cat.name}</span> : <span style={{ fontSize: 12, color: V.fgMuted }}>—</span>}</div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 3, overflow: "hidden" }}>
-                      {a.tags.slice(0, 2).map(tid => { const t = tagById(tid); return t ? <span key={tid} style={{ fontSize: 10, padding: "1px 5px", borderRadius: V.rFull, background: V.secondary, color: V.fgSoft, whiteSpace: "nowrap" }}>{t.name}</span> : null; })}
-                      {a.tags.length > 2 && <span style={{ fontSize: 10, color: V.fgMuted }}>+{a.tags.length - 2}</span>}
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", fontSize: 12, color: V.fgMuted, fontFamily: mono }}>{fmtSz(a.size)}</div>
-                  </div>;
-                })}
-              </div>
-            )}
+                      <div style={{ padding: "8px 10px" }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: V.fg, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</div>
+                      </div>
+                    </div>;
+                  })}
+                </div>
+              );
+            })()}
             {filtered.length > 0 && (
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 0", marginTop: 16, borderTop: `1px solid ${V.border}` }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -1705,13 +1666,16 @@ function App() {
       </div>
 
       {showUpload && <UploadModal onClose={() => setShowUpload(false)} onUpload={handleUpload} />}
-      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} onSave={() => setUpdateKey(k => k + 1)} />}
     </div>
   );
 }
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App />);
+const rootEl = document.getElementById('root');
+if (rootEl) {
+  const root = ReactDOM.createRoot(rootEl);
+  root.render(<App />);
+}
   </script>
 </body>
 

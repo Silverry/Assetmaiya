@@ -3,17 +3,16 @@
 //  职责：SettingsModal（类别管理 + 标签维度树管理）
 //  依赖：data.js（CATEGORIES, TAG_DIMS, rebuildTags）、theme.js（V, I, btnStyle）
 //  被依赖：app.js（App 通过 showSettings 控制显隐）
-//  副作用：save() 直接修改全局 CATEGORIES/TAG_DIMS，并通过
-//          window.dispatchEvent('app_data_updated') 通知 App 刷新
+//  副作用：save() 直接修改全局 CATEGORIES/TAG_DIMS，然后调用 onSave() 通知 App 刷新
 // ═══════════════════════════════════════════════════════════
 
 // ── SettingsModal (系统设置弹窗) ─────────────────────────
 /**
  * 系统设置弹窗，包含类别管理和标签维度树管理两个 Tab
  * @param {function} onClose - 关闭弹窗回调
- * 副作用：save() 直接覆写全局 CATEGORIES/TAG_DIMS 并触发 'app_data_updated' 事件
+ * @param {function} onSave - 保存后通知父组件刷新的回调
  */
-function SettingsModal({ onClose }) {
+function SettingsModal({ onClose, onSave }) {
   const [tab, setTab] = useState("cat");
   const [cats, setCats] = useState(() => JSON.parse(JSON.stringify(CATEGORIES)));
   const [dims, setDims] = useState(() => JSON.parse(JSON.stringify(TAG_DIMS)));
@@ -24,7 +23,7 @@ function SettingsModal({ onClose }) {
     CATEGORIES = cats;
     TAG_DIMS = dims;
     rebuildTags(TAG_DIMS);
-    window.dispatchEvent(new Event('app_data_updated'));
+    onSave();
     onClose();
   };
 
